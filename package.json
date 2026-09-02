@@ -21,6 +21,7 @@
   "build": {
     "appId": "com.chepnhacthenho.downloader",
     "productName": "Chep Nhac The Nho",
+    "artifactName": "ChepNhacTheNho-Setup-${version}.${ext}",
     "asar": true,
     "files": [
       "1.js",
