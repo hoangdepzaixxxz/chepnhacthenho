@@ -13,6 +13,7 @@ const APP_DIR = app.isPackaged ? path.dirname(process.execPath) : __dirname;
 const RENDERER_DIR = app.isPackaged ? path.join(process.resourcesPath, "renderer") : path.join(__dirname, "renderer");
 const OUTPUT_ROOT = path.join(process.env.USERPROFILE || os.homedir(), "Documents", "chepnhacthenho");
 const UPDATE_CONFIG = path.join(APP_DIR, "update-config.json");
+const DEFAULT_UPDATE_URL = "https://github.com/hoangdepzaixxxz/chepnhacthenho/releases/latest/download";
 let mainWindow;
 let downloader;
 
@@ -108,7 +109,7 @@ function updateSettings() {
 function ensureUpdateConfig() {
   if (!app.isPackaged || fs.existsSync(UPDATE_CONFIG)) return;
   try {
-    fs.writeFileSync(UPDATE_CONFIG, `${JSON.stringify({ url: "" }, null, 2)}\n`, "utf8");
+    fs.writeFileSync(UPDATE_CONFIG, `${JSON.stringify({ url: DEFAULT_UPDATE_URL }, null, 2)}\n`, "utf8");
   } catch {
     // The UI will show the configuration issue if this installation directory is read-only.
   }
