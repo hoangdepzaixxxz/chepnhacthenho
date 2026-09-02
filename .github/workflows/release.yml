@@ -27,7 +27,8 @@ jobs:
       - name: Create latest.yml for the in-app updater
         shell: pwsh
         run: |
-          $installer = Get-ChildItem 'dist-desktop/* Setup *.exe' | Select-Object -First 1
+          $installer = Get-ChildItem 'dist-desktop/ChepNhacTheNho-Setup-*.exe' | Select-Object -First 1
+          if (-not $installer) { throw 'Không tìm thấy file cài đặt sau khi build.' }
           $hashBytes = [Security.Cryptography.SHA512]::Create().ComputeHash([IO.File]::ReadAllBytes($installer.FullName))
           $hash = [Convert]::ToBase64String($hashBytes)
           $version = $env:GITHUB_REF_NAME -replace '^v', ''
@@ -44,6 +45,6 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist-desktop/* Setup *.exe
-            dist-desktop/* Setup *.exe.blockmap
+            dist-desktop/ChepNhacTheNho-Setup-*.exe
+            dist-desktop/ChepNhacTheNho-Setup-*.exe.blockmap
             dist-desktop/latest.yml
