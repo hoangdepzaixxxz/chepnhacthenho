@@ -1,0 +1,9 @@
+node_modules/
+dist/
+dist-desktop/
+.youtube-tools/
+link.txt
+voice.txt
+update-config.json
+dasu.response
+*.log

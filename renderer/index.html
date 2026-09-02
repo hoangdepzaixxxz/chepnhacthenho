@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Chép Nhạc Thẻ Nhớ</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <p class="eyebrow">YOUTUBE DOWNLOADER</p>
+          <h1>Chép Nhạc Thẻ Nhớ</h1>
+          <p class="muted">Dán từng link YouTube, chọn thư mục và tải. Không cần dùng CMD.</p>
+        </div>
+        <div class="header-actions">
+          <button id="open-output" class="secondary">Mở thư mục nhạc</button>
+          <button id="update" class="secondary">Kiểm tra cập nhật</button>
+        </div>
+      </header>
+
+      <p id="update-status" class="status subdued">Đang tải thông tin ứng dụng...</p>
+
+      <section class="workspace">
+        <div class="card links-card">
+          <div class="tabs" role="tablist">
+            <button class="tab active" data-mode="video">Video 720p</button>
+            <button class="tab" data-mode="audio">Voice MP3</button>
+          </div>
+          <div class="search-box">
+            <label for="search-query">Tìm kiếm YouTube <span>Ưu tiên video mới đăng</span></label>
+            <div class="search-row">
+              <input id="search-query" maxlength="200" placeholder="Tên bài hát, ca sĩ hoặc chủ đề">
+              <select id="search-limit" aria-label="Số kết quả tìm kiếm">
+                <option value="5">5 kết quả</option>
+                <option value="10">10 kết quả</option>
+                <option value="20" selected>20 kết quả</option>
+              </select>
+              <button id="search" class="secondary">Tìm</button>
+            </div>
+            <div id="search-results" class="search-results" hidden></div>
+            <div id="add-search-row" class="save-row" hidden>
+              <span id="search-count" class="muted"></span>
+              <button id="add-search" class="secondary">Thêm mục đã chọn</button>
+            </div>
+          </div>
+          <label for="links">Link YouTube <span>Mỗi dòng một link</span></label>
+          <textarea id="links" spellcheck="false" placeholder="https://www.youtube.com/watch?v=..."></textarea>
+          <div class="save-row">
+            <span id="link-count" class="muted">0 link</span>
+            <button id="save-links" class="secondary">Lưu danh sách</button>
+          </div>
+        </div>
+
+        <div class="card download-card">
+          <p class="eyebrow">NƠI LƯU</p>
+          <h2>Chọn thư mục</h2>
+          <select id="folder"></select>
+          <div class="new-folder">
+            <input id="folder-name" maxlength="80" placeholder="Tên thư mục mới">
+            <button id="create-folder" class="secondary">Tạo</button>
+          </div>
+          <p id="output-root" class="path"></p>
+          <button id="start" class="primary">Bắt đầu tải</button>
+          <button id="stop" class="danger" disabled>Dừng tải</button>
+        </div>
+      </section>
+
+      <section class="card progress-card">
+        <div class="progress-title"><div><p class="eyebrow">TIẾN TRÌNH</p><h2 id="progress-heading">Sẵn sàng</h2></div><span id="summary" class="pill">0 / 0</span></div>
+        <div id="empty-progress" class="empty">Danh sách tải sẽ hiển thị ở đây.</div>
+        <div id="jobs" class="jobs"></div>
+      </section>
+    </main>
+    <script src="renderer.js"></script>
+  </body>
+</html>

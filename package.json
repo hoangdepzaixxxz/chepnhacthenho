@@ -1,0 +1,55 @@
+{
+  "name": "chepnhacthenho",
+  "version": "1.2.5",
+  "private": true,
+  "main": "desktop-main.js",
+  "bin": "1.js",
+  "scripts": {
+    "start": "electron .",
+    "build:exe": "electron-builder --win nsis --publish never",
+    "release": "electron-builder --win nsis --publish always"
+  },
+  "dependencies": {
+    "electron-updater": "6.8.9",
+    "yt-search": "^2.13.1"
+  },
+  "devDependencies": {
+    "@yao-pkg/pkg": "5.16.1",
+    "electron": "39.8.10",
+    "electron-builder": "24.13.3"
+  },
+  "build": {
+    "appId": "com.chepnhacthenho.downloader",
+    "productName": "Chep Nhac The Nho",
+    "asar": true,
+    "files": [
+      "1.js",
+      "desktop-main.js",
+      "preload.js",
+      "package.json",
+      "node_modules/**"
+    ],
+    "extraResources": [
+      {
+        "from": "renderer",
+        "to": "renderer"
+      }
+    ],
+    "directories": {
+      "output": "dist-desktop"
+    },
+    "win": {
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  },
+  "overrides": {
+    "cheerio": "1.0.0",
+    "minimatch": "3.1.4"
+  }
+}

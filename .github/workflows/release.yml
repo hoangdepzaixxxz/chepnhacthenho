@@ -1,0 +1,47 @@
+name: Build and publish Windows release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+          cache: npm
+      - run: npm ci
+      - name: Set the app version from its Git tag
+        shell: pwsh
+        run: npm version ($env:GITHUB_REF_NAME).Substring(1) --no-git-tag-version
+      - run: npm run build:exe
+      - name: Create latest.yml for the in-app updater
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem 'dist-desktop/* Setup *.exe' | Select-Object -First 1
+          $hashBytes = [Security.Cryptography.SHA512]::Create().ComputeHash([IO.File]::ReadAllBytes($installer.FullName))
+          $hash = [Convert]::ToBase64String($hashBytes)
+          $version = ($env:GITHUB_REF_NAME).Substring(1)
+          @"
+          version: $version
+          files:
+            - url: $($installer.Name)
+              sha512: $hash
+              size: $($installer.Length)
+          path: $($installer.Name)
+          sha512: $hash
+          releaseDate: $(Get-Date -Format o)
+          "@.Trim() | Set-Content -Encoding utf8 'dist-desktop/latest.yml'
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist-desktop/* Setup *.exe
+            dist-desktop/* Setup *.exe.blockmap
+            dist-desktop/latest.yml
