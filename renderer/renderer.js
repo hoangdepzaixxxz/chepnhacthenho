@@ -26,17 +26,9 @@ function setStatus(text, type = "subdued") {
   el.className = `status ${type}`;
 }
 
-function renderFolders(folders, selected) {
-  const select = $("folder");
-  if (!folders.length) {
-    select.replaceChildren(new Option("Hãy tạo thư mục lưu trước", "", true, true));
-    select.disabled = true;
-    $("start").disabled = true;
-    return;
-  }
-  select.disabled = false;
-  select.replaceChildren(...folders.map((folder) => new Option(folder, folder === selected || (!selected && folder === folders[0]))));
-  if (!running) $("start").disabled = false;
+function renderOutputDirectory(directory) {
+  $("output-directory").textContent = directory;
+  $("output-directory").title = directory;
 }
 
 function switchMode(nextMode) {
@@ -114,8 +106,7 @@ function setTheme(nextTheme) {
 async function initialize() {
   initTheme();
   state = await window.downloader.state();
-  $("output-root").textContent = state.outputRoot;
-  renderFolders(state.folders);
+  renderOutputDirectory(state.outputDirectory);
   switchMode("video");
   setStatus(state.update.available ? `Phiên bản ${state.version}. Đã sẵn sàng kiểm tra cập nhật.` : `${state.version}. ${state.update.message}`);
 }
@@ -185,11 +176,12 @@ $("add-search").addEventListener("click", async () => {
 
 $("open-output").addEventListener("click", () => window.downloader.openOutput().catch((error) => setStatus(error.message, "error")));
 
-$("create-folder").addEventListener("click", async () => {
+$("choose-output-directory").addEventListener("click", async () => {
   try {
-    const folders = await window.downloader.createFolder($("folder-name").value);
-    renderFolders(folders, $("folder-name").value.trim());
-    $("folder-name").value = "";
+    const directory = await window.downloader.chooseOutputDirectory();
+    state.outputDirectory = directory;
+    renderOutputDirectory(directory);
+    setStatus("Đã chọn thư mục lưu file tải về.", "ready");
   } catch (error) {
     setStatus(error.message, "error");
   }
@@ -197,8 +189,8 @@ $("create-folder").addEventListener("click", async () => {
 
 $("start").addEventListener("click", async () => {
   try {
-    const folder = $("folder").value;
-    if (!folder) throw new Error("Hãy tạo hoặc chọn thư mục lưu trước.");
+    const folder = state.outputDirectory;
+    if (!folder) throw new Error("Hãy chọn thư mục lưu trước.");
     await saveLinks();
     jobs = [];
     renderJobs();
@@ -206,11 +198,11 @@ $("start").addEventListener("click", async () => {
     $("start").disabled = true;
     $("stop").disabled = false;
     $("progress-heading").textContent = "Đang chuẩn bị tải...";
-    await window.downloader.start({ mode, folder });
+    await window.downloader.start({ mode, outputDirectory: folder });
   } catch (error) {
     running = false;
     $("stop").disabled = true;
-    $("start").disabled = $("folder").disabled;
+    $("start").disabled = false;
     setStatus(error.message, "error");
   }
 });
@@ -242,7 +234,7 @@ window.downloader.onDownload((event) => {
   }
   if (event.type === "runner-closed") {
     running = false;
-    $("start").disabled = $("folder").disabled;
+    $("start").disabled = false;
     $("stop").disabled = true;
   }
 });

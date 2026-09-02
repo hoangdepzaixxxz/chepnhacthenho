@@ -591,6 +591,37 @@ input, select {
 
 .select-wrapper {
   position: relative;
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.select-wrapper .path {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+}
+
+.select-wrapper button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.destination-help {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.new-folder-box,
+.path-display-box {
+  display: none;
 }
 
 select {

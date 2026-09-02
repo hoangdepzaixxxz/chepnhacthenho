@@ -12,6 +12,7 @@ if (ytSearchDebugValue !== undefined) process.env.debug = ytSearchDebugValue;
 const APP_DIR = app.isPackaged ? path.dirname(process.execPath) : __dirname;
 const RENDERER_DIR = app.isPackaged ? path.join(process.resourcesPath, "renderer") : path.join(__dirname, "renderer");
 const OUTPUT_ROOT = path.join(process.env.USERPROFILE || os.homedir(), "Documents", "chepnhacthenho");
+const DOWNLOAD_SETTINGS = path.join(app.getPath("userData"), "download-settings.json");
 const UPDATE_CONFIG = path.join(APP_DIR, "update-config.json");
 const DEFAULT_UPDATE_URL = "https://github.com/hoangdepzaixxxz/chepnhacthenho/releases/latest/download";
 let mainWindow;
@@ -25,14 +26,6 @@ function send(channel, value) {
 
 function linkFile(mode) {
   return path.join(APP_DIR, mode === "audio" ? "voice.txt" : "link.txt");
-}
-
-function folders() {
-  fs.mkdirSync(OUTPUT_ROOT, { recursive: true });
-  return fs.readdirSync(OUTPUT_ROOT, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name)
-    .sort((a, b) => a.localeCompare(b, "vi", { sensitivity: "base" }));
 }
 
 function readText(file) {
@@ -63,6 +56,45 @@ function selectedOutputDirectory(folder) {
   if (!fs.statSync(directory).isDirectory()) {
     throw new Error("Đường dẫn lưu không phải là thư mục.");
   }
+  return directory;
+}
+
+function resolveOutputDirectory(value) {
+  const directory = path.resolve(String(value || ""));
+  if (!path.isAbsolute(directory) || !fs.existsSync(directory)) {
+    throw new Error("Thư mục đã chọn không còn tồn tại.");
+  }
+  if (!fs.statSync(directory).isDirectory()) {
+    throw new Error("Đường dẫn đã chọn không phải là thư mục.");
+  }
+  return directory;
+}
+
+function currentOutputDirectory() {
+  fs.mkdirSync(OUTPUT_ROOT, { recursive: true });
+  try {
+    const settings = JSON.parse(fs.readFileSync(DOWNLOAD_SETTINGS, "utf8"));
+    return resolveOutputDirectory(settings.outputDirectory);
+  } catch {
+    return OUTPUT_ROOT;
+  }
+}
+
+function saveOutputDirectory(directory) {
+  fs.mkdirSync(path.dirname(DOWNLOAD_SETTINGS), { recursive: true });
+  fs.writeFileSync(DOWNLOAD_SETTINGS, `${JSON.stringify({ outputDirectory: directory }, null, 2)}\n`, "utf8");
+}
+
+async function chooseOutputDirectory() {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: "Chọn thư mục lưu file tải về",
+    defaultPath: currentOutputDirectory(),
+    buttonLabel: "Chọn thư mục này",
+    properties: ["openDirectory", "createDirectory"],
+  });
+  if (result.canceled || !result.filePaths[0]) return currentOutputDirectory();
+  const directory = resolveOutputDirectory(result.filePaths[0]);
+  saveOutputDirectory(directory);
   return directory;
 }
 
@@ -200,12 +232,12 @@ function parseRunnerOutput(stream) {
   });
 }
 
-function startDownload({ mode, folder }) {
+function startDownload({ mode, outputDirectory }) {
   if (downloader) throw new Error("Đang có một lượt tải chạy.");
   if (!["video", "audio"].includes(mode)) throw new Error("Chế độ tải không hợp lệ.");
-  const outputDirectory = selectedOutputDirectory(folder);
+  const destination = resolveOutputDirectory(outputDirectory || currentOutputDirectory());
   const environment = { ...process.env, ELECTRON_RUN_AS_NODE: "1", DOWNLOADER_APP_DIR: APP_DIR };
-  downloader = spawn(process.execPath, [path.join(__dirname, "1.js"), "--desktop", "--mode", mode, "--output-dir", outputDirectory], {
+  downloader = spawn(process.execPath, [path.join(__dirname, "1.js"), "--desktop", "--mode", mode, "--output-dir", destination], {
     windowsHide: true,
     env: environment,
     stdio: ["ignore", "pipe", "pipe"],
@@ -221,8 +253,7 @@ function startDownload({ mode, folder }) {
 
 ipcMain.handle("app-state", () => ({
   appDir: APP_DIR,
-  outputRoot: OUTPUT_ROOT,
-  folders: folders(),
+  outputDirectory: currentOutputDirectory(),
   videoLinks: readText(linkFile("video")),
   audioLinks: readText(linkFile("audio")),
   version: app.getVersion(),
@@ -237,15 +268,16 @@ ipcMain.handle("create-folder", (_event, name) => {
   const clean = validFolderName(name);
   if (!clean) throw new Error("Tên thư mục không hợp lệ.");
   fs.mkdirSync(path.join(OUTPUT_ROOT, clean), { recursive: true });
-  return folders();
+  return [];
 });
 ipcMain.handle("start-download", (_event, payload) => startDownload(payload));
+ipcMain.handle("choose-output-directory", chooseOutputDirectory);
 ipcMain.handle("stop-download", () => {
   if (!downloader?.pid) return;
   spawnSync("taskkill.exe", ["/PID", String(downloader.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true });
 });
 ipcMain.handle("open-output", async () => {
-  const error = await shell.openPath(OUTPUT_ROOT);
+  const error = await shell.openPath(currentOutputDirectory());
   if (error) throw new Error(error);
 });
 ipcMain.handle("check-update", checkForUpdates);

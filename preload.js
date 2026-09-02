@@ -4,7 +4,7 @@ contextBridge.exposeInMainWorld("downloader", {
   state: () => ipcRenderer.invoke("app-state"),
   saveLinks: (data) => ipcRenderer.invoke("save-links", data),
   searchYoutube: (data) => ipcRenderer.invoke("search-youtube", data),
-  createFolder: (name) => ipcRenderer.invoke("create-folder", name),
+  chooseOutputDirectory: () => ipcRenderer.invoke("choose-output-directory"),
   start: (data) => ipcRenderer.invoke("start-download", data),
   stop: () => ipcRenderer.invoke("stop-download"),
   openOutput: () => ipcRenderer.invoke("open-output"),

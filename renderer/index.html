@@ -145,10 +145,17 @@
           </div>
 
           <div class="folder-select-group">
-            <label for="folder" class="field-label">Thư mục tải về</label>
+            <label for="choose-output-directory" class="field-label">Thư mục tải về</label>
             <div class="select-wrapper">
-              <select id="folder"></select>
+              <p id="output-directory" class="path" title="Selected download folder"></p>
+              <button id="choose-output-directory" class="secondary" type="button">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                </svg>
+                <span>Chọn thư mục</span>
+              </button>
             </div>
+            <p class="destination-help">File tải xong sẽ được lưu trực tiếp vào thư mục này.</p>
           </div>
 
           <div class="new-folder-box">
