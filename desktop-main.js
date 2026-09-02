@@ -123,6 +123,13 @@ function configureUpdater() {
   return settings;
 }
 
+async function checkForUpdates() {
+  const settings = configureUpdater();
+  if (!settings.available) return { state: "unconfigured", text: settings.message };
+  await autoUpdater.checkForUpdates();
+  return { state: "started" };
+}
+
 function configureUpdaterEvents() {
   autoUpdater.on("checking-for-update", () => send("update-status", { state: "checking", text: "Đang kiểm tra bản cập nhật..." }));
   autoUpdater.on("update-available", (info) => {
@@ -212,12 +219,7 @@ ipcMain.handle("open-output", async () => {
   const error = await shell.openPath(OUTPUT_ROOT);
   if (error) throw new Error(error);
 });
-ipcMain.handle("check-update", async () => {
-  const settings = configureUpdater();
-  if (!settings.available) return { state: "unconfigured", text: settings.message };
-  await autoUpdater.checkForUpdates();
-  return { state: "started" };
-});
+ipcMain.handle("check-update", checkForUpdates);
 ipcMain.handle("install-update", () => autoUpdater.quitAndInstall());
 ipcMain.handle("show-update-help", () => dialog.showMessageBox(mainWindow, {
   type: "info",
@@ -229,6 +231,9 @@ app.whenReady().then(() => {
   ensureUpdateConfig();
   configureUpdaterEvents();
   createWindow();
+  if (app.isPackaged) {
+    setTimeout(() => checkForUpdates().catch((error) => send("update-status", { state: "error", text: `Không thể kiểm tra cập nhật: ${error.message}` })), 1500);
+  }
   app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
 app.on("window-all-closed", () => { if (process.platform !== "darwin") app.quit(); });
