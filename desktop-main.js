@@ -16,6 +16,8 @@ const UPDATE_CONFIG = path.join(APP_DIR, "update-config.json");
 const DEFAULT_UPDATE_URL = "https://github.com/hoangdepzaixxxz/chepnhacthenho/releases/latest/download";
 let mainWindow;
 let downloader;
+let updateAvailableNotified = false;
+let updateReadyNotified = false;
 
 function send(channel, value) {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, value);
@@ -135,11 +137,37 @@ function configureUpdaterEvents() {
   autoUpdater.on("checking-for-update", () => send("update-status", { state: "checking", text: "Đang kiểm tra bản cập nhật..." }));
   autoUpdater.on("update-available", (info) => {
     send("update-status", { state: "available", version: info.version, text: `Có bản ${info.version}. Đang tải...` });
+    if (!updateAvailableNotified && mainWindow && !mainWindow.isDestroyed()) {
+      updateAvailableNotified = true;
+      dialog.showMessageBox(mainWindow, {
+        type: "info",
+        title: "Có bản cập nhật mới",
+        message: `Đã có phiên bản ${info.version}.`,
+        detail: "Ứng dụng đang tự tải bản cập nhật ở nền. Bạn có thể tiếp tục sử dụng bình thường.",
+        buttons: ["Đã hiểu"],
+      }).catch(() => {});
+    }
     autoUpdater.downloadUpdate().catch((error) => send("update-status", { state: "error", text: `Không thể tải cập nhật: ${error.message}` }));
   });
   autoUpdater.on("update-not-available", () => send("update-status", { state: "current", text: "Bạn đang dùng bản mới nhất." }));
   autoUpdater.on("download-progress", (progress) => send("update-status", { state: "downloading", percent: progress.percent, text: `Đang tải cập nhật: ${Math.round(progress.percent)}%` }));
-  autoUpdater.on("update-downloaded", (info) => send("update-status", { state: "ready", version: info.version, text: `Đã tải bản ${info.version}. Bấm Cài và khởi động lại.` }));
+  autoUpdater.on("update-downloaded", (info) => {
+    send("update-status", { state: "ready", version: info.version, text: `Đã tải bản ${info.version}. Bấm Cài và khởi động lại.` });
+    if (!updateReadyNotified && mainWindow && !mainWindow.isDestroyed()) {
+      updateReadyNotified = true;
+      dialog.showMessageBox(mainWindow, {
+        type: "info",
+        title: "Bản cập nhật đã sẵn sàng",
+        message: `Bản ${info.version} đã tải xong.`,
+        detail: "Chọn Cài ngay để khởi động lại ứng dụng và hoàn tất cập nhật.",
+        buttons: ["Cài ngay", "Để sau"],
+        defaultId: 0,
+        cancelId: 1,
+      }).then(({ response }) => {
+        if (response === 0) autoUpdater.quitAndInstall();
+      }).catch(() => {});
+    }
+  });
   autoUpdater.on("error", (error) => send("update-status", { state: "error", text: `Không thể cập nhật: ${error.message}` }));
 }
 
