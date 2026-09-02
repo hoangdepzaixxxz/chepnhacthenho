@@ -76,7 +76,7 @@ async function searchYouTube(query, limit) {
   const cleanQuery = String(query || "").trim();
   const safeLimit = Number(limit);
   if (!cleanQuery) throw new Error("Hãy nhập nội dung cần tìm.");
-  if (!Number.isInteger(safeLimit) || safeLimit < 1 || safeLimit > 20) throw new Error("Số kết quả phải từ 1 đến 20.");
+  if (!Number.isInteger(safeLimit) || safeLimit < 1 || safeLimit > 100) throw new Error("Số kết quả phải từ 1 đến 100.");
 
   const result = await yts(cleanQuery);
   const seen = new Set();

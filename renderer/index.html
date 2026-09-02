@@ -32,11 +32,7 @@
             <label for="search-query">Tìm kiếm YouTube <span>Ưu tiên video mới đăng</span></label>
             <div class="search-row">
               <input id="search-query" maxlength="200" placeholder="Tên bài hát, ca sĩ hoặc chủ đề">
-              <select id="search-limit" aria-label="Số kết quả tìm kiếm">
-                <option value="5">5 kết quả</option>
-                <option value="10">10 kết quả</option>
-                <option value="20" selected>20 kết quả</option>
-              </select>
+              <input id="search-limit" type="number" min="1" max="100" step="1" value="20" inputmode="numeric" aria-label="Số kết quả tìm kiếm" title="Nhập từ 1 đến 100 kết quả">
               <button id="search" class="secondary">Tìm</button>
             </div>
             <div id="search-results" class="search-results" hidden></div>
