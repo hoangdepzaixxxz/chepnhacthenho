@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, shell } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, shell, nativeTheme } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const fs = require("fs");
 const os = require("os");
@@ -255,6 +255,11 @@ ipcMain.handle("show-update-help", () => dialog.showMessageBox(mainWindow, {
   title: "Thiết lập cập nhật",
   message: "Tạo file update-config.json cạnh file EXE, ví dụ:\n{\n  \"url\": \"https://github.com/TEN-TAI-KHOAN/TEN-REPO/releases/latest/download\"\n}\n\nMỗi bản mới phải có latest.yml và file Setup.exe do electron-builder phát hành.",
 }));
+ipcMain.handle("set-theme", (_event, theme) => {
+  if (["dark", "light", "system"].includes(theme)) {
+    nativeTheme.themeSource = theme;
+  }
+});
 
 app.whenReady().then(() => {
   ensureUpdateConfig();

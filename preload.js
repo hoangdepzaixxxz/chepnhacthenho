@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld("downloader", {
   checkUpdate: () => ipcRenderer.invoke("check-update"),
   installUpdate: () => ipcRenderer.invoke("install-update"),
   showUpdateHelp: () => ipcRenderer.invoke("show-update-help"),
+  setTheme: (theme) => ipcRenderer.invoke("set-theme", theme),
   onDownload: (listener) => ipcRenderer.on("download-event", (_event, data) => listener(data)),
   onUpdate: (listener) => ipcRenderer.on("update-status", (_event, data) => listener(data)),
 });

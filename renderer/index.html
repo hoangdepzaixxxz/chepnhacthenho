@@ -1,71 +1,219 @@
 <!doctype html>
-<html lang="vi">
+<html lang="vi" data-theme="dark">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Chép Nhạc Thẻ Nhớ</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
+    <div class="app-background"></div>
     <main>
-      <header>
-        <div>
-          <p class="eyebrow">YOUTUBE DOWNLOADER</p>
-          <h1>Chép Nhạc Thẻ Nhớ</h1>
-          <p class="muted">Dán từng link YouTube, chọn thư mục và tải. Không cần dùng CMD.</p>
+      <header class="app-header">
+        <div class="brand">
+          <div class="brand-logo">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polygon points="10 8 16 12 10 16 10 8" fill="currentColor"></polygon>
+            </svg>
+          </div>
+          <div class="brand-info">
+            <span class="eyebrow">YOUTUBE MEDIA DOWNLOADER</span>
+            <h1>Chép Nhạc Thẻ Nhớ</h1>
+          </div>
         </div>
         <div class="header-actions">
-          <button id="open-output" class="secondary">Mở thư mục nhạc</button>
-          <button id="update" class="secondary">Kiểm tra cập nhật</button>
+          <button id="theme-toggle" class="icon-button" type="button" title="Chuyển chế độ Sáng / Tối" aria-label="Đổi giao diện Sáng/Tối">
+            <svg class="sun-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="5"></circle>
+              <line x1="12" y1="1" x2="12" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="23"></line>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+              <line x1="1" y1="12" x2="3" y2="12"></line>
+              <line x1="21" y1="12" x2="23" y2="12"></line>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+            </svg>
+            <svg class="moon-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+          </button>
+          <button id="open-output" class="secondary" type="button">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+            </svg>
+            <span>Mở thư mục nhạc</span>
+          </button>
+          <button id="update" class="secondary" type="button">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <polyline points="1 20 1 14 7 14"></polyline>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+            <span>Kiểm tra cập nhật</span>
+          </button>
         </div>
       </header>
 
-      <p id="update-status" class="status subdued">Đang tải thông tin ứng dụng...</p>
+      <div class="status-wrap">
+        <span class="status-indicator"></span>
+        <p id="update-status" class="status subdued">Đang tải thông tin ứng dụng...</p>
+      </div>
 
       <section class="workspace">
         <div class="card links-card">
-          <div class="tabs" role="tablist">
-            <button class="tab active" data-mode="video">Video 720p</button>
-            <button class="tab" data-mode="audio">Voice MP3</button>
+          <div class="tabs-container">
+            <div class="tabs" role="tablist">
+              <button class="tab active" data-mode="video" type="button">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                  <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+                </svg>
+                <span>Video 720p</span>
+              </button>
+              <button class="tab" data-mode="audio" type="button">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M9 18V5l12-2v13"></path>
+                  <circle cx="6" cy="18" r="3"></circle>
+                  <circle cx="18" cy="16" r="3"></circle>
+                </svg>
+                <span>Voice MP3</span>
+              </button>
+            </div>
           </div>
+
           <div class="search-box">
-            <label for="search-query">Tìm kiếm YouTube <span>Ưu tiên video mới đăng</span></label>
+            <div class="section-title-row">
+              <label for="search-query">Tìm kiếm YouTube</label>
+              <span class="badge-hint">Ưu tiên video mới</span>
+            </div>
             <div class="search-row">
-              <input id="search-query" maxlength="200" placeholder="Tên bài hát, ca sĩ hoặc chủ đề">
-              <input id="search-limit" type="number" min="1" max="100" step="1" value="20" inputmode="numeric" aria-label="Số kết quả tìm kiếm" title="Nhập từ 1 đến 100 kết quả">
-              <button id="search" class="secondary">Tìm</button>
+              <div class="search-input-wrapper">
+                <svg class="search-input-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input id="search-query" maxlength="200" placeholder="Nhập tên bài hát, ca sĩ hoặc thể loại...">
+              </div>
+              <input id="search-limit" type="number" min="1" max="100" step="1" value="20" inputmode="numeric" aria-label="Số kết quả tìm kiếm" title="Nhập số lượng kết quả (1 - 100)">
+              <button id="search" class="secondary" type="button">
+                <span>Tìm kiếm</span>
+              </button>
             </div>
             <div id="search-results" class="search-results" hidden></div>
-            <div id="add-search-row" class="save-row" hidden>
+            <div id="add-search-row" class="save-row search-actions-row" hidden>
               <span id="search-count" class="muted"></span>
-              <button id="add-search" class="secondary">Thêm mục đã chọn</button>
+              <button id="add-search" class="secondary" type="button">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>Thêm mục đã chọn</span>
+              </button>
             </div>
           </div>
-          <label for="links">Link YouTube <span>Mỗi dòng một link</span></label>
-          <textarea id="links" spellcheck="false" placeholder="https://www.youtube.com/watch?v=..."></textarea>
-          <div class="save-row">
-            <span id="link-count" class="muted">0 link</span>
-            <button id="save-links" class="secondary">Lưu danh sách</button>
+
+          <div class="links-box">
+            <div class="section-title-row">
+              <label for="links">Danh sách liên kết YouTube</label>
+              <span class="badge-hint">Mỗi dòng một liên kết</span>
+            </div>
+            <div class="textarea-wrapper">
+              <textarea id="links" spellcheck="false" placeholder="https://www.youtube.com/watch?v=..."></textarea>
+            </div>
+            <div class="save-row">
+              <span id="link-count" class="pill-counter">0 link</span>
+              <button id="save-links" class="secondary" type="button">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                  <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                  <polyline points="7 3 7 8 15 8"></polyline>
+                </svg>
+                <span>Lưu danh sách</span>
+              </button>
+            </div>
           </div>
         </div>
 
         <div class="card download-card">
-          <p class="eyebrow">NƠI LƯU</p>
-          <h2>Chọn thư mục</h2>
-          <select id="folder"></select>
-          <div class="new-folder">
-            <input id="folder-name" maxlength="80" placeholder="Tên thư mục mới">
-            <button id="create-folder" class="secondary">Tạo</button>
+          <div class="card-header-group">
+            <p class="eyebrow">LƯU TRỮ</p>
+            <h2>Chọn thư mục</h2>
           </div>
-          <p id="output-root" class="path"></p>
-          <button id="start" class="primary">Bắt đầu tải</button>
-          <button id="stop" class="danger" disabled>Dừng tải</button>
+
+          <div class="folder-select-group">
+            <label for="folder" class="field-label">Thư mục tải về</label>
+            <div class="select-wrapper">
+              <select id="folder"></select>
+            </div>
+          </div>
+
+          <div class="new-folder-box">
+            <label for="folder-name" class="field-label">Tạo thư mục mới</label>
+            <div class="new-folder">
+              <input id="folder-name" maxlength="80" placeholder="Tên thư mục mới...">
+              <button id="create-folder" class="secondary" type="button">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>Tạo</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="path-display-box">
+            <div class="path-label">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+              </svg>
+              <span>Đường dẫn gốc:</span>
+            </div>
+            <p id="output-root" class="path" title="Vị trí lưu trữ dữ liệu"></p>
+          </div>
+
+          <div class="action-buttons-group">
+            <button id="start" class="primary" type="button">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span>Bắt đầu tải</span>
+            </button>
+            <button id="stop" class="danger" type="button" disabled>
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
+              </svg>
+              <span>Dừng tải</span>
+            </button>
+          </div>
         </div>
       </section>
 
       <section class="card progress-card">
-        <div class="progress-title"><div><p class="eyebrow">TIẾN TRÌNH</p><h2 id="progress-heading">Sẵn sàng</h2></div><span id="summary" class="pill">0 / 0</span></div>
-        <div id="empty-progress" class="empty">Danh sách tải sẽ hiển thị ở đây.</div>
+        <div class="progress-title">
+          <div class="progress-info">
+            <p class="eyebrow">TIẾN ĐỘ</p>
+            <h2 id="progress-heading">Sẵn sàng</h2>
+          </div>
+          <span id="summary" class="pill">0 / 0</span>
+        </div>
+
+        <div id="empty-progress" class="empty">
+          <div class="empty-icon">
+            <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+          </div>
+          <p>Danh sách bài hát và tiến trình tải sẽ xuất hiện tại đây.</p>
+        </div>
+
         <div id="jobs" class="jobs"></div>
       </section>
     </main>
