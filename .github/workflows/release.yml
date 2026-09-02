@@ -20,7 +20,9 @@ jobs:
       - run: npm ci
       - name: Set the app version from its Git tag
         shell: pwsh
-        run: npm version ($env:GITHUB_REF_NAME).Substring(1) --no-git-tag-version
+        run: |
+          $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          npm version $version --no-git-tag-version --allow-same-version
       - run: npm run build:exe
       - name: Create latest.yml for the in-app updater
         shell: pwsh
@@ -28,7 +30,7 @@ jobs:
           $installer = Get-ChildItem 'dist-desktop/* Setup *.exe' | Select-Object -First 1
           $hashBytes = [Security.Cryptography.SHA512]::Create().ComputeHash([IO.File]::ReadAllBytes($installer.FullName))
           $hash = [Convert]::ToBase64String($hashBytes)
-          $version = ($env:GITHUB_REF_NAME).Substring(1)
+          $version = $env:GITHUB_REF_NAME -replace '^v', ''
           @"
           version: $version
           files:
