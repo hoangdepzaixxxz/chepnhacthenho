@@ -28,7 +28,7 @@
             <span class="brand-title">Chép Nhạc Thẻ Nhớ</span>
             <div class="brand-subtitle-row">
               <span class="brand-tag">PRO</span>
-              <span class="brand-version">v1.4.1</span>
+              <span class="brand-version">v1.4.2</span>
             </div>
           </div>
         </div>
@@ -300,10 +300,11 @@
                     <input id="search-query" maxlength="200" placeholder="Nhập tên bài hát, ca sĩ, DJ remix hoặc từ khóa...">
                   </div>
 
-                  <div class="limit-input-wrap" title="Số lượng kết quả tìm kiếm (1 - 100)">
+                  <label class="limit-input-wrap" title="Số lượng kết quả tìm kiếm (1 - 100)">
+                    <span class="limit-label">Hiển thị</span>
                     <input id="search-limit" type="number" min="1" max="100" step="1" value="20" inputmode="numeric" aria-label="Số kết quả tìm kiếm">
-                    <span class="limit-label-inline">mục</span>
-                  </div>
+                    <span class="limit-label-inline">kết quả</span>
+                  </label>
 
                   <button id="search" class="btn-secondary" type="button">
                     <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -318,15 +319,15 @@
                 <div id="search-results-box" class="search-results-box">
                   <div id="search-results" class="search-results-list" hidden></div>
                   <div id="add-search-row" class="search-actions-bar" hidden>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                      <button id="btn-toggle-all-search" class="btn-secondary" type="button" style="height: 32px; padding: 0 10px; font-size: 12px;">Bỏ chọn tất cả</button>
+                    <div class="search-selection-summary">
+                      <button id="btn-toggle-all-search" class="btn-secondary btn-search-toggle" type="button">Bỏ chọn tất cả</button>
                       <span id="search-count" class="search-counter-badge"></span>
                     </div>
-                    <button id="add-search" class="btn-secondary" type="button" style="height: 34px;">
+                    <button id="add-search" class="btn-secondary btn-add-search" type="button">
                       <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="20 6 9 17 4 12"></polyline>
                       </svg>
-                      <span>Thêm mục đã chọn vào danh sách</span>
+                      <span>Thêm vào danh sách</span>
                     </button>
                   </div>
                 </div>
