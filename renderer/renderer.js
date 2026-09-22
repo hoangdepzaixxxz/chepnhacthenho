@@ -189,8 +189,6 @@ $("choose-output-directory").addEventListener("click", async () => {
 
 $("start").addEventListener("click", async () => {
   try {
-    const folder = state.outputDirectory;
-    if (!folder) throw new Error("Hãy chọn thư mục lưu trước.");
     await saveLinks();
     jobs = [];
     renderJobs();
@@ -198,7 +196,7 @@ $("start").addEventListener("click", async () => {
     $("start").disabled = true;
     $("stop").disabled = false;
     $("progress-heading").textContent = "Đang chuẩn bị tải...";
-    await window.downloader.start({ mode, outputDirectory: folder });
+    await window.downloader.start({ mode, outputDirectory: state.outputDirectory || "" });
   } catch (error) {
     running = false;
     $("stop").disabled = true;

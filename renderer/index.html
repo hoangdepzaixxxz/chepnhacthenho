@@ -141,7 +141,7 @@
         <div class="card download-card">
           <div class="card-header-group">
             <p class="eyebrow">LƯU TRỮ</p>
-            <h2>Chọn thư mục</h2>
+            <h2>Thư mục lưu</h2>
           </div>
 
           <div class="folder-select-group">
@@ -155,7 +155,7 @@
                 <span>Chọn thư mục</span>
               </button>
             </div>
-            <p class="destination-help">File tải xong sẽ được lưu trực tiếp vào thư mục này.</p>
+            <p class="destination-help">Không cần chọn: app sẽ tự tạo và lưu vào Documents\chepnhacthenho.</p>
           </div>
 
           <div class="new-folder-box">
@@ -224,6 +224,17 @@
         <div id="jobs" class="jobs"></div>
       </section>
     </main>
+    <button id="music-toggle" class="music-toggle" type="button" data-state="loading"
+      aria-label="Tắt nhạc nền" aria-pressed="false" aria-busy="true" title="Đang tải nhạc nền · Bấm để tắt">
+      <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M9 18V5l12-2v13M9 9l12-2"></path>
+        <ellipse cx="6" cy="18" rx="3" ry="3"></ellipse>
+        <ellipse cx="18" cy="16" rx="3" ry="3"></ellipse>
+        <path class="music-off-mark" d="m3 3 18 18"></path>
+      </svg>
+    </button>
+    <span id="music-status" class="music-status" role="status"></span>
+    <script src="music.js"></script>
     <script src="renderer.js"></script>
   </body>
 </html>

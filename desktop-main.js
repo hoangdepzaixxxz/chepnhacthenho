@@ -211,7 +211,12 @@ function createWindow() {
     minHeight: 640,
     backgroundColor: "#0b1020",
     autoHideMenuBar: true,
-    webPreferences: { preload: path.join(__dirname, "preload.js"), contextIsolation: true, nodeIntegration: false },
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      autoplayPolicy: "no-user-gesture-required",
+    },
   });
   mainWindow.loadFile(path.join(RENDERER_DIR, "index.html"));
 }
@@ -232,9 +237,11 @@ function parseRunnerOutput(stream) {
   });
 }
 
-function startDownload({ mode, outputDirectory }) {
+function startDownload({ mode, outputDirectory } = {}) {
   if (downloader) throw new Error("Đang có một lượt tải chạy.");
   if (!["video", "audio"].includes(mode)) throw new Error("Chế độ tải không hợp lệ.");
+  // When no folder was chosen in the interface, this creates and uses the
+  // default Documents\chepnhacthenho directory.
   const destination = resolveOutputDirectory(outputDirectory || currentOutputDirectory());
   const environment = { ...process.env, ELECTRON_RUN_AS_NODE: "1", DOWNLOADER_APP_DIR: APP_DIR };
   downloader = spawn(process.execPath, [path.join(__dirname, "1.js"), "--desktop", "--mode", mode, "--output-dir", destination], {
