@@ -2,7 +2,7 @@ let state = {
   videoLinks: "",
   audioLinks: "",
   outputDirectory: "",
-  version: "1.4.0",
+  version: "1.4.1",
   update: { available: false, message: "" },
 };
 let mode = "video";
