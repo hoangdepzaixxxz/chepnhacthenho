@@ -2,7 +2,7 @@ let state = {
   videoLinks: "",
   audioLinks: "",
   outputDirectory: "",
-  version: "1.4.2",
+  version: "1.5.0",
   update: { available: false, message: "" },
 };
 let mode = "video";
@@ -19,7 +19,7 @@ function readableError(error) {
 }
 
 /* --------------------------------------------------------------------------
-   Toast Notification System
+   Toast Notification System (Windows 11 Subtle Desktop Toasts)
    -------------------------------------------------------------------------- */
 function showToast(message, type = "subdued") {
   const container = $("toast-container");
@@ -30,13 +30,13 @@ function showToast(message, type = "subdued") {
 
   const iconSvg =
     type === "ready"
-      ? `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`
+      ? `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`
       : type === "error"
-      ? `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`
-      : `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`;
+      ? `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`
+      : `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`;
 
   toast.innerHTML = `
-    <div class="toast-icon">${iconSvg}</div>
+    <span class="toast-icon">${iconSvg}</span>
     <span class="toast-msg">${message}</span>
   `;
 
@@ -44,8 +44,8 @@ function showToast(message, type = "subdued") {
 
   setTimeout(() => {
     toast.classList.add("toast-out");
-    setTimeout(() => toast.remove(), 250);
-  }, 3500);
+    setTimeout(() => toast.remove(), 200);
+  }, 3200);
 }
 
 function countLinks(text) {
@@ -55,7 +55,7 @@ function countLinks(text) {
 function updateLinkCount() {
   const linksEl = $("links");
   const count = linksEl ? countLinks(linksEl.value) : 0;
-  
+
   if ($("link-count")) $("link-count").textContent = `${count} link`;
   if ($("stat-links")) $("stat-links").textContent = `${count} liên kết`;
   if ($("nav-link-badge")) $("nav-link-badge").textContent = String(count);
@@ -82,7 +82,10 @@ function renderOutputDirectory(directory) {
   }
 
   const folderName = cleanDir.split(/[/\\]/).filter(Boolean).pop() || cleanDir;
-  if ($("stat-folder")) $("stat-folder").textContent = folderName;
+  if ($("stat-folder")) {
+    $("stat-folder").textContent = folderName;
+    $("stat-folder").title = cleanDir;
+  }
   if ($("sidebar-folder-path")) {
     $("sidebar-folder-path").textContent = folderName;
     $("sidebar-folder-path").title = cleanDir;
@@ -94,7 +97,7 @@ function switchMode(nextMode) {
   document.querySelectorAll(".tab").forEach((tab) => {
     tab.classList.toggle("active", tab.dataset.mode === mode);
   });
-  
+
   const linksEl = $("links");
   if (linksEl && state) {
     linksEl.value = mode === "video" ? (state.videoLinks || "") : (state.audioLinks || "");
@@ -102,6 +105,10 @@ function switchMode(nextMode) {
 
   if ($("stat-mode")) {
     $("stat-mode").textContent = mode === "video" ? "Video 720p HD" : "Voice MP3 HQ";
+  }
+
+  if ($("config-format-label")) {
+    $("config-format-label").textContent = mode === "video" ? "Video MP4 (720p HD)" : "Âm thanh MP3 (320kbps HQ)";
   }
 
   updateLinkCount();
@@ -119,9 +126,19 @@ function renderJobs() {
     item.className = `job ${job.status || ""}`;
     const percent = Math.max(0, Math.min(100, Number(job.percent) || 0));
 
+    let statusText = "Chờ tải";
+    if (job.status === "starting") statusText = "Khởi tạo";
+    else if (job.status === "downloading") statusText = "Đang tải";
+    else if (job.status === "merging") statusText = "Ghép file";
+    else if (job.status === "done") statusText = "Hoàn tất";
+    else if (job.status === "failed") statusText = "Lỗi";
+
     item.innerHTML = `
       <div class="job-row">
-        <span class="job-title" title="${job.title || job.url || ""}"></span>
+        <div class="job-info">
+          <span class="job-badge">${statusText}</span>
+          <span class="job-title" title="${job.title || job.url || ""}"></span>
+        </div>
         <span class="job-meta"></span>
       </div>
       <div class="bar"><i></i></div>
@@ -151,7 +168,7 @@ function renderSearchResults() {
   actionsRow.hidden = searchResults.length === 0;
 
   if ($("search-count")) {
-    $("search-count").textContent = `${searchResults.length} kết quả tìm thấy`;
+    $("search-count").textContent = `${searchResults.length} video tìm thấy`;
   }
 
   container.replaceChildren(...searchResults.map((video, index) => {
@@ -169,10 +186,11 @@ function renderSearchResults() {
     const title = document.createElement("span");
     title.className = "result-title";
     title.textContent = video.title;
+    title.title = video.title;
 
     const meta = document.createElement("span");
     meta.className = "result-meta";
-    meta.textContent = [video.author, video.ago, video.duration].filter(Boolean).join(" · ");
+    meta.textContent = [video.author, video.duration, video.ago].filter(Boolean).join(" · ");
 
     copy.append(title, meta);
     row.append(check, copy);
@@ -194,7 +212,7 @@ async function saveLinks() {
    -------------------------------------------------------------------------- */
 function initTheme() {
   const saved = localStorage.getItem("app-theme");
-  const initialTheme = saved || (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+  const initialTheme = saved === "light" ? "light" : "dark";
   setTheme(initialTheme);
 }
 
@@ -209,24 +227,72 @@ function setTheme(nextTheme) {
 }
 
 /* --------------------------------------------------------------------------
-   Sidebar Navigation Scroll Spy
+   Sidebar Navigation, Safe Section Scrolling & Scroll Spy
    -------------------------------------------------------------------------- */
+function scrollToSection(targetId) {
+  const contentArea = document.querySelector(".app-content");
+  const targetElement = $(targetId);
+  if (contentArea && targetElement) {
+    const contentRect = contentArea.getBoundingClientRect();
+    const targetRect = targetElement.getBoundingClientRect();
+    const currentScroll = contentArea.scrollTop;
+    const targetY = currentScroll + (targetRect.top - contentRect.top) - 8;
+    contentArea.scrollTo({ top: Math.max(0, targetY), behavior: "smooth" });
+    targetElement.classList.add("highlight-pulse");
+    setTimeout(() => targetElement.classList.remove("highlight-pulse"), 800);
+  }
+}
+
 function setupSidebarNavigation() {
   const navLinks = document.querySelectorAll(".nav-link[data-target]");
   navLinks.forEach((link) => {
     link.addEventListener("click", () => {
       navLinks.forEach((item) => item.classList.remove("active"));
       link.classList.add("active");
-
-      const targetId = link.dataset.target;
-      const targetElement = $(targetId);
-      if (targetElement) {
-        targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
-        targetElement.classList.add("highlight-pulse");
-        setTimeout(() => targetElement.classList.remove("highlight-pulse"), 1200);
-      }
+      scrollToSection(link.dataset.target);
     });
   });
+
+  // Scroll Spy: Cập nhật active nav link khi cuộn
+  const contentArea = document.querySelector(".app-content");
+  if (contentArea) {
+    contentArea.addEventListener("scroll", () => {
+      const scrollPos = contentArea.scrollTop + 60;
+      const sections = ["section-search", "section-links", "section-config", "section-progress"]
+        .map((id) => $(id))
+        .filter(Boolean);
+
+      for (let i = sections.length - 1; i >= 0; i--) {
+        const sec = sections[i];
+        if (sec.offsetTop <= scrollPos) {
+          const targetId = sec.id === "section-storage" ? "section-config" : sec.id;
+          const activeNav = document.querySelector(`.nav-link[data-target="${targetId}"]`);
+          if (activeNav && !activeNav.classList.contains("active")) {
+            navLinks.forEach((item) => item.classList.remove("active"));
+            activeNav.classList.add("active");
+          }
+          break;
+        }
+      }
+    }, { passive: true });
+  }
+
+  // Window scroll lock: Khóa cố định window và body luôn ở (0, 0), tránh bị giật hoặc cắt header
+  window.addEventListener("scroll", () => {
+    if (window.scrollY !== 0 || window.scrollX !== 0) {
+      window.scrollTo(0, 0);
+    }
+  }, { passive: true });
+
+  // Chuyển tiếp lăn chuột khi hover ở header hoặc status bar vào vùng nội dung chính
+  const appMain = document.querySelector(".app-main");
+  if (appMain && contentArea) {
+    appMain.addEventListener("wheel", (e) => {
+      if (e.target.closest(".app-header, .app-statusbar")) {
+        contentArea.scrollTop += e.deltaY;
+      }
+    }, { passive: true });
+  }
 }
 
 /* --------------------------------------------------------------------------
@@ -242,7 +308,7 @@ async function initialize() {
 
   const statusMsg = state.update?.available
     ? `Phiên bản v${state.version}. Sẵn sàng kiểm tra bản mới.`
-    : `Phiên bản v${state.version}. ${state.update?.message || "Hệ thống sẵn sàng."}`;
+    : `Phiên bản v${state.version}. Hệ thống sẵn sàng.`;
   setStatus(statusMsg, "subdued");
 }
 
@@ -278,13 +344,14 @@ $("search")?.addEventListener("click", async () => {
   const query = $("search-query")?.value?.trim();
   if (!query) {
     setStatus("Hãy nhập từ khóa hoặc tên bài hát cần tìm.", "error");
+    $("search-query")?.focus();
     return;
   }
 
   try {
     button.disabled = true;
     button.innerHTML = `
-      <svg class="spin-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <svg class="spin-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <line x1="12" y1="2" x2="12" y2="6"></line>
         <line x1="12" y1="18" x2="12" y2="22"></line>
         <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line>
@@ -314,7 +381,7 @@ $("search")?.addEventListener("click", async () => {
   } finally {
     button.disabled = false;
     button.innerHTML = `
-      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="11" cy="11" r="8"></circle>
         <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
       </svg>
@@ -408,9 +475,9 @@ $("start")?.addEventListener("click", async () => {
     $("start").disabled = true;
     $("stop").disabled = false;
     $("progress-heading").textContent = "Đang kết nối yt-dlp & chuẩn bị tải...";
-    
+
     // Smooth scroll to progress monitor section
-    $("section-progress")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    scrollToSection("section-progress");
 
     await window.downloader.start({ mode, outputDirectory: state.outputDirectory || "" });
   } catch (error) {
@@ -432,6 +499,20 @@ $("update")?.addEventListener("click", async () => {
   if (result?.text) setStatus(result.text, result.state === "unconfigured" ? "error" : "subdued");
   if (result?.state === "unconfigured") window.downloader.showUpdateHelp();
 });
+
+/* Author & Contact Links */
+function openZaloContact(event) {
+  if (event) event.preventDefault();
+  const zaloUrl = "https://zalo.me/sadboyyzz";
+  if (window.downloader?.openExternal) {
+    window.downloader.openExternal(zaloUrl);
+  } else {
+    window.open(zaloUrl, "_blank");
+  }
+}
+
+$("author-zalo-btn")?.addEventListener("click", openZaloContact);
+$("statusbar-author-link")?.addEventListener("click", openZaloContact);
 
 /* Downloader IPC Stream Events */
 window.downloader.onDownload((event) => {

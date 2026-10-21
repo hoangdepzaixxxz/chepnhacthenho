@@ -67,6 +67,7 @@
       download: "false",
     });
     frame.src = `https://w.soundcloud.com/player/?${params}`;
+    frame.style.cssText = "position:fixed!important;top:-9999px!important;left:-9999px!important;width:1px!important;height:1px!important;opacity:0!important;pointer-events:none!important;border:none!important;";
     document.body.append(frame);
     widget = window.SC.Widget(frame);
     const events = window.SC.Widget.Events;

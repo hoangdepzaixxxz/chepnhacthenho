@@ -60,10 +60,11 @@ function selectedOutputDirectory(folder) {
 }
 
 function resolveOutputDirectory(value) {
-  const directory = path.resolve(String(value || ""));
-  if (!path.isAbsolute(directory) || !fs.existsSync(directory)) {
-    throw new Error("Thư mục đã chọn không còn tồn tại.");
+  if (typeof value !== "string" || !path.isAbsolute(value)) {
+    throw new Error("Thư mục lưu không hợp lệ.");
   }
+  const directory = path.resolve(value);
+  fs.mkdirSync(directory, { recursive: true });
   if (!fs.statSync(directory).isDirectory()) {
     throw new Error("Đường dẫn đã chọn không phải là thư mục.");
   }
@@ -203,13 +204,23 @@ function configureUpdaterEvents() {
   autoUpdater.on("error", (error) => send("update-status", { state: "error", text: `Không thể cập nhật: ${error.message}` }));
 }
 
+function resolveAppIcon() {
+  const icoPath = path.join(RENDERER_DIR, "assets", "app.ico");
+  if (fs.existsSync(icoPath)) return icoPath;
+  const pngPath = path.join(RENDERER_DIR, "assets", "logo.png");
+  if (fs.existsSync(pngPath)) return pngPath;
+  return undefined;
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1120,
-    height: 780,
-    minWidth: 900,
-    minHeight: 640,
-    backgroundColor: "#0b1020",
+    title: "AutoMusic Pro – Chép Nhạc Thẻ Nhớ",
+    icon: resolveAppIcon(),
+    width: 1140,
+    height: 760,
+    minWidth: 920,
+    minHeight: 620,
+    backgroundColor: "#181818",
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -217,6 +228,12 @@ function createWindow() {
       nodeIntegration: false,
       autoplayPolicy: "no-user-gesture-required",
     },
+  });
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (typeof url === "string" && /^https?:\/\//i.test(url)) {
+      shell.openExternal(url);
+    }
+    return { action: "deny" };
   });
   mainWindow.loadFile(path.join(RENDERER_DIR, "index.html"));
 }
@@ -286,6 +303,13 @@ ipcMain.handle("stop-download", () => {
 ipcMain.handle("open-output", async () => {
   const error = await shell.openPath(currentOutputDirectory());
   if (error) throw new Error(error);
+});
+ipcMain.handle("open-external", async (_event, url) => {
+  if (typeof url === "string" && /^https?:\/\//i.test(url)) {
+    await shell.openExternal(url);
+    return true;
+  }
+  return false;
 });
 ipcMain.handle("check-update", checkForUpdates);
 ipcMain.handle("install-update", () => autoUpdater.quitAndInstall());

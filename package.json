@@ -1,6 +1,7 @@
 {
   "name": "chepnhacthenho",
-  "version": "1.4.2",
+  "version": "1.5.0",
+  "author": "Nguyễn Phi Hoàng",
   "private": true,
   "main": "desktop-main.js",
   "bin": "1.js",
@@ -20,8 +21,8 @@
   },
   "build": {
     "appId": "com.chepnhacthenho.downloader",
-    "productName": "Chep Nhac The Nho",
-    "artifactName": "ChepNhacTheNho-Setup-${version}.${ext}",
+    "productName": "AutoMusic Pro",
+    "artifactName": "AutoMusicPro-Setup-${version}.${ext}",
     "asar": true,
     "files": [
       "1.js",
@@ -40,17 +41,20 @@
       "output": "dist-desktop"
     },
     "win": {
-      "signAndEditExecutable": false
+      "signAndEditExecutable": true,
+      "icon": "renderer/assets/app.ico"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
-    }
+    },
+    "executableName": "AutoMusicPro"
   },
   "overrides": {
     "cheerio": "1.0.0",
     "minimatch": "3.1.4"
-  }
+  },
+  "description": "Phần mềm tự động sao chép và quản lý nhạc trên máy tính, USB và thẻ nhớ."
 }

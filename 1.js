@@ -1096,13 +1096,14 @@ async function runDesktopSession() {
   const outputRoot = path.resolve(OUTPUT_ROOT);
   let outputDirectory;
   if (requestedOutputDirectory) {
+    if (!path.isAbsolute(requestedOutputDirectory)) throw new Error("Thư mục lưu không hợp lệ.");
     outputDirectory = path.resolve(requestedOutputDirectory);
   } else {
     if (!folder || folder !== path.basename(folder)) throw new Error("Thư mục lưu không hợp lệ.");
     outputDirectory = path.resolve(outputRoot, folder);
-  }
-  if (!outputDirectory.startsWith(`${outputRoot}${path.sep}`)) {
-    throw new Error("Thư mục lưu không hợp lệ.");
+    if (!outputDirectory.startsWith(`${outputRoot}${path.sep}`)) {
+      throw new Error("Thư mục lưu không hợp lệ.");
+    }
   }
   fs.mkdirSync(outputDirectory, { recursive: true });
   if (!fs.statSync(outputDirectory).isDirectory()) throw new Error("Đường dẫn lưu không phải là thư mục.");

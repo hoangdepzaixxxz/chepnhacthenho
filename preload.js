@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld("downloader", {
   start: (data) => ipcRenderer.invoke("start-download", data),
   stop: () => ipcRenderer.invoke("stop-download"),
   openOutput: () => ipcRenderer.invoke("open-output"),
+  openExternal: (url) => ipcRenderer.invoke("open-external", url),
   checkUpdate: () => ipcRenderer.invoke("check-update"),
   installUpdate: () => ipcRenderer.invoke("install-update"),
   showUpdateHelp: () => ipcRenderer.invoke("show-update-help"),
