@@ -9,7 +9,11 @@ npm start
 npm run build:exe
 ```
 
-Bộ cài nằm tại `dist-desktop\Chep Nhac The Nho Setup <version>.exe`. Cài bộ này, không dùng thư mục `win-unpacked` để phát hành.
+Bộ cài nằm tại `dist-desktop\AutoMusicPro-Setup-<version>.exe`. Cài bộ này, không dùng thư mục `win-unpacked` để phát hành.
+
+## Dữ liệu của app
+
+Bản cài đặt lưu `link.txt`, `voice.txt` và công cụ tải (yt-dlp, Deno, FFmpeg) trong `%LOCALAPPDATA%\AutoMusicPro`, không phải cạnh file EXE: mỗi lần cập nhật, bộ cài xoá toàn bộ thư mục cài đặt. yt-dlp tự kiểm tra bản mới tối đa 1 lần/ngày. Khi chạy bằng `npm start`, các file này nằm ngay trong thư mục mã nguồn.
 
 ## Bật nút cập nhật
 

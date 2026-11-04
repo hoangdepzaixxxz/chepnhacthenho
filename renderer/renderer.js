@@ -2,15 +2,21 @@ let state = {
   videoLinks: "",
   audioLinks: "",
   outputDirectory: "",
-  version: "1.5.0",
+  version: "",
   update: { available: false, message: "" },
 };
 let mode = "video";
-let jobs = [];
+let runMode = null; // the list being downloaded, which may differ from the open tab
 let running = false;
+let jobs = [];
+let lastQuery = "";
 let searchResults = [];
+let linksSync = null; // pending reload of the link files after a run
 
 const $ = (id) => document.getElementById(id);
+const linksKey = (linkMode) => (linkMode === "video" ? "videoLinks" : "audioLinks");
+const MODE_NAMES = { video: "Video", audio: "MP3" };
+const FORMAT_NOTES = { video: "MP4 · H.264 · tối đa 720p", audio: "MP3 · chất lượng cao nhất" };
 
 function readableError(error) {
   return String(error?.message || error || "Đã xảy ra lỗi.")
@@ -18,531 +24,671 @@ function readableError(error) {
     .replace(/^Error:\s*/i, "");
 }
 
+function setText(element, value) {
+  if (element && element.textContent !== value) element.textContent = value;
+}
+
+function folderName(directory) {
+  return String(directory || "").split(/[/\\]/).filter(Boolean).pop() || "";
+}
+
 /* --------------------------------------------------------------------------
-   Toast Notification System (Windows 11 Subtle Desktop Toasts)
+   Toasts
    -------------------------------------------------------------------------- */
+const TOAST_ICONS = {
+  ready: '<svg viewBox="0 0 24 24" width="16" height="16"><path d="M20 6 9 17l-5-5"></path></svg>',
+  error: '<svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4M12 16h.01"></path></svg>',
+  subdued: '<svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="9"></circle><path d="M12 16v-4M12 8h.01"></path></svg>',
+};
+
 function showToast(message, type = "subdued") {
   const container = $("toast-container");
   if (!container) return;
-
   const toast = document.createElement("div");
   toast.className = `toast ${type}`;
-
-  const iconSvg =
-    type === "ready"
-      ? `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`
-      : type === "error"
-      ? `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`
-      : `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`;
-
-  toast.innerHTML = `
-    <span class="toast-icon">${iconSvg}</span>
-    <span class="toast-msg">${message}</span>
-  `;
-
+  const icon = document.createElement("span");
+  icon.className = "toast-icon";
+  icon.innerHTML = TOAST_ICONS[type] || TOAST_ICONS.subdued;
+  const text = document.createElement("span");
+  text.className = "toast-msg";
+  // Messages can contain video titles and error text: never parse them as HTML.
+  text.textContent = message;
+  toast.append(icon, text);
   container.appendChild(toast);
-
   setTimeout(() => {
     toast.classList.add("toast-out");
     setTimeout(() => toast.remove(), 200);
   }, 3200);
 }
 
-function countLinks(text) {
-  return text.split(/\r?\n/).filter((line) => line.trim() && !line.trim().startsWith("#")).length;
-}
-
-function updateLinkCount() {
-  const linksEl = $("links");
-  const count = linksEl ? countLinks(linksEl.value) : 0;
-
-  if ($("link-count")) $("link-count").textContent = `${count} link`;
-  if ($("stat-links")) $("stat-links").textContent = `${count} liên kết`;
-  if ($("nav-link-badge")) $("nav-link-badge").textContent = String(count);
-}
-
-function setStatus(text, type = "subdued") {
+function setStatus(text, type = "subdued", { toast = true } = {}) {
+  const cleanText = type === "error" ? readableError(text) : String(text || "");
   const el = $("update-status");
-  const cleanText = type === "error" ? readableError(text) : text;
   if (el) {
     el.textContent = cleanText;
     el.className = `status ${type}`;
   }
-  showToast(cleanText, type);
+  if (toast) showToast(cleanText, type);
 }
 
-function renderOutputDirectory(directory) {
-  const cleanDir = directory || "Chưa chọn thư mục";
-  if ($("output-directory")) {
-    $("output-directory").textContent = cleanDir;
-    $("output-directory").title = cleanDir;
-  }
-  if ($("output-root")) {
-    $("output-root").textContent = cleanDir;
-  }
+/* --------------------------------------------------------------------------
+   Link lists
+   -------------------------------------------------------------------------- */
+function linkLines(text) {
+  return String(text || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+}
 
-  const folderName = cleanDir.split(/[/\\]/).filter(Boolean).pop() || cleanDir;
-  if ($("stat-folder")) {
-    $("stat-folder").textContent = folderName;
-    $("stat-folder").title = cleanDir;
+function countLinks(text) {
+  return linkLines(text).filter((line) => !line.startsWith("#")).length;
+}
+
+// The open tab's list is the textarea (it may hold unsaved edits); the other is the saved copy.
+function linksFor(linkMode) {
+  return linkMode === mode ? $("links")?.value || "" : state[linksKey(linkMode)] || "";
+}
+
+function renderCounts() {
+  const count = countLinks(linksFor(mode));
+  setText($("link-count"), `${count} link`);
+  setText($("count-video"), String(countLinks(linksFor("video"))));
+  setText($("count-audio"), String(countLinks(linksFor("audio"))));
+  renderSummary();
+  if (!jobs.length) renderJobs();
+}
+
+// Saves the textarea for the open tab. Only the Save button shows a toast; automatic
+// saves (switching tabs, starting a download) stay quiet.
+async function saveLinks({ notify = false } = {}) {
+  if (linksSync) await linksSync;
+  const linksValue = $("links")?.value || "";
+  await window.downloader.saveLinks({ mode, contents: linksValue });
+  state[linksKey(mode)] = linksValue;
+  if (notify) setStatus("Đã lưu danh sách link.", "ready");
+}
+
+// The runner removes finished and dead links from the link file. Load that result and
+// keep any edits made in the textarea while the download was running.
+async function reloadLinksAfterRun() {
+  const latest = await window.downloader.state();
+  const key = linksKey(mode);
+  const textarea = $("links");
+  const before = new Set(linkLines(state[key]));
+  const edited = linkLines(textarea?.value);
+  const editedSet = new Set(edited);
+  const latestLines = linkLines(latest[key]);
+  const kept = latestLines.filter((line) => !before.has(line) || editedSet.has(line));
+  const keptSet = new Set(kept);
+  const added = edited.filter((line) => !before.has(line) && !keptSet.has(line));
+  const merged = [...kept, ...added];
+
+  state.videoLinks = latest.videoLinks;
+  state.audioLinks = latest.audioLinks;
+  // Leave the textarea (and its caret) alone when nothing in it changed.
+  if (textarea && merged.join("\n") !== edited.join("\n")) textarea.value = merged.join("\n");
+  if (added.length || kept.length !== latestLines.length) {
+    await window.downloader.saveLinks({ mode, contents: textarea?.value || "" });
+    state[key] = textarea?.value || "";
   }
-  if ($("sidebar-folder-path")) {
-    $("sidebar-folder-path").textContent = folderName;
-    $("sidebar-folder-path").title = cleanDir;
+  renderCounts();
+}
+
+function syncLinksAfterRun() {
+  if (linksSync) return linksSync;
+  linksSync = reloadLinksAfterRun()
+    .catch((error) => setStatus(error, "error"))
+    .finally(() => { linksSync = null; });
+  return linksSync;
+}
+
+/* --------------------------------------------------------------------------
+   Title row and tabs
+   -------------------------------------------------------------------------- */
+function jobCounts() {
+  const counts = { done: 0, failed: 0, active: 0, waiting: 0 };
+  for (const job of jobs) {
+    if (job.status === "done") counts.done += 1;
+    else if (job.status === "failed") counts.failed += 1;
+    else if (job.status === "waiting") counts.waiting += 1;
+    else counts.active += 1;
   }
+  return counts;
+}
+
+// The line under the title: what is queued, or how far the run is. The destination
+// follows it as its own control.
+function renderSummary() {
+  let text;
+  if (running && jobs.length) {
+    const { done, failed } = jobCounts();
+    text = `Đang tải ${MODE_NAMES[runMode]} · ${done}/${jobs.length} bài xong${failed ? ` · ${failed} lỗi` : ""}`;
+  } else if (running) {
+    text = `Đang chuẩn bị tải ${MODE_NAMES[runMode]}`;
+  } else {
+    const count = countLinks(linksFor(mode));
+    text = count
+      ? `${count} link ${MODE_NAMES[mode]} chờ tải`
+      : `Chưa có link ${MODE_NAMES[mode]} nào`;
+  }
+  setText($("page-sub"), text);
 }
 
 function switchMode(nextMode) {
   mode = nextMode;
   document.querySelectorAll(".tab").forEach((tab) => {
-    tab.classList.toggle("active", tab.dataset.mode === mode);
+    tab.setAttribute("aria-selected", String(tab.dataset.mode === mode));
   });
-
   const linksEl = $("links");
-  if (linksEl && state) {
-    linksEl.value = mode === "video" ? (state.videoLinks || "") : (state.audioLinks || "");
-  }
+  if (linksEl) linksEl.value = state[linksKey(mode)] || "";
+  setText($("format-note"), FORMAT_NOTES[mode]);
+  setText($("links-title"), `Link ${MODE_NAMES[mode]} chờ tải`);
+  renderAddButton();
+  renderCounts();
+}
 
-  if ($("stat-mode")) {
-    $("stat-mode").textContent = mode === "video" ? "Video 720p HD" : "Voice MP3 HQ";
-  }
+function renderOutputDirectory(directory) {
+  setText($("output-name"), folderName(directory) || "Chọn thư mục");
+  const chooser = $("choose-output-directory");
+  if (chooser) chooser.title = directory ? `${directory}
+Bấm để đổi thư mục lưu` : "Chọn thư mục lưu";
+  renderSummary();
+  renderProgress();
+}
 
-  if ($("config-format-label")) {
-    $("config-format-label").textContent = mode === "video" ? "Video MP4 (720p HD)" : "Âm thanh MP3 (320kbps HQ)";
-  }
+/* --------------------------------------------------------------------------
+   Progress: the figure, the song strip and one row per song
+   -------------------------------------------------------------------------- */
+const JOB_LABELS = {
+  waiting: "Chờ",
+  starting: "Khởi tạo",
+  downloading: "Đang tải",
+  done: "Xong",
+  failed: "Lỗi",
+};
+const jobRows = new Map();
 
-  updateLinkCount();
+function jobLabel(job) {
+  if (job.status === "merging") return runMode === "audio" ? "Đang chuyển MP3" : "Đang ghép";
+  return JOB_LABELS[job.status] || "Chờ";
+}
+
+function createJobRow() {
+  const item = document.createElement("li");
+  const title = document.createElement("span");
+  title.className = "job-title";
+  const meta = document.createElement("span");
+  meta.className = "job-meta";
+  const speed = document.createElement("span");
+  speed.className = "job-speed num";
+  const figure = document.createElement("span");
+  figure.className = "job-figure num";
+  const pill = document.createElement("span");
+  pill.className = "pill";
+  meta.append(speed, figure, pill);
+  const bar = document.createElement("span");
+  bar.className = "job-bar";
+  const fill = document.createElement("i");
+  bar.append(fill);
+  const error = document.createElement("span");
+  error.className = "job-error";
+  item.append(title, meta, bar, error);
+  return { item, title, speed, figure, pill, fill, error };
+}
+
+function updateJobRow(row, job) {
+  const percent = Math.max(0, Math.min(100, Number(job.percent) || 0));
+  const active = ["starting", "downloading", "merging"].includes(job.status);
+  const className = `job ${job.status || "waiting"}`;
+  if (row.item.className !== className) row.item.className = className;
+  const titleText = job.title || job.url || "Đang chuẩn bị…";
+  setText(row.title, titleText);
+  if (row.title.title !== titleText) row.title.title = titleText;
+  setText(row.speed, active && job.speed ? job.speed.replace(/iB\/s$/, "B/s") : "");
+  setText(row.figure, active ? `${percent.toFixed(job.status === "merging" ? 0 : 1)}%` : "");
+  const pillClass = `pill ${job.status || "waiting"}`;
+  if (row.pill.className !== pillClass) row.pill.className = pillClass;
+  setText(row.pill, jobLabel(job));
+  const width = `${percent}%`;
+  if (row.fill.style.width !== width) row.fill.style.width = width;
+  setText(row.error, job.status === "failed" ? job.error || "Không tải được bài này." : "");
+  row.error.hidden = job.status !== "failed";
+}
+
+// One cell per song; a song's cell fills as it downloads. Before a run, the cells
+// are the links waiting in the open list.
+function renderStrip() {
+  const strip = $("strip");
+  if (!strip) return;
+  const cells = jobs.length
+    ? jobs.map((job) => ({ status: job.status, percent: Number(job.percent) || 0 }))
+    : Array.from({ length: Math.min(countLinks(linksFor(mode)), 200) }, () => ({ status: "waiting", percent: 0 }));
+  while (strip.children.length > cells.length) strip.lastChild.remove();
+  while (strip.children.length < cells.length) {
+    const cell = document.createElement("span");
+    cell.append(document.createElement("i"));
+    strip.append(cell);
+  }
+  strip.classList.toggle("dense", cells.length > 40);
+  cells.forEach((cell, index) => {
+    const el = strip.children[index];
+    const className = `cell ${cell.status}`;
+    if (el.className !== className) el.className = className;
+    const width = cell.status === "done" ? "100%" : `${Math.max(0, Math.min(100, cell.percent))}%`;
+    if (el.firstChild.style.width !== width) el.firstChild.style.width = width;
+  });
+}
+
+function renderProgress() {
+  const { done, failed, active, waiting } = jobCounts();
+  const total = jobs.length || countLinks(linksFor(mode));
+  setText($("progress-figure"), `${jobs.length ? done : 0} / ${total}`);
+  const notes = [];
+  if (active) notes.push(`${active} đang tải`);
+  if (waiting && jobs.length) notes.push(`${waiting} chờ`);
+  if (failed) notes.push(`${failed} lỗi`);
+  setText($("progress-note"), notes.join(" · "));
+  renderStrip();
+
+  // With links queued, their rows are the content; the guide shows only for an empty list.
+  const count = countLinks(linksFor(mode));
+  const empty = $("empty-progress");
+  if (empty) empty.hidden = jobs.length > 0 || running || count > 0;
+  setText($("empty-mode"), MODE_NAMES[mode]);
+  if ($("start")) $("start").disabled = running || count === 0;
+}
+
+const QUEUE_PREVIEW_ROWS = 12;
+
+// Before a run, the list shows the links waiting to be downloaded, so the same rows
+// fill in once the run starts.
+function queuedRows() {
+  return linkLines(linksFor(mode))
+    .filter((line) => !line.startsWith("#"))
+    .slice(0, QUEUE_PREVIEW_ROWS)
+    .map((url) => ({ url, title: url.replace(/^https?:\/\/(www\.)?/i, ""), status: "queued", percent: 0 }));
 }
 
 function renderJobs() {
-  const emptyEl = $("empty-progress");
-  if (emptyEl) emptyEl.hidden = jobs.length > 0;
+  const container = $("jobs");
+  if (!container) return;
+  const rows = jobs.length || running ? jobs : queuedRows();
+  const items = rows.map((job) => {
+    let row = jobRows.get(job.url);
+    if (!row) {
+      row = createJobRow();
+      jobRows.set(job.url, row);
+    }
+    updateJobRow(row, job);
+    return row.item;
+  });
+  const current = new Set(rows.map((job) => job.url));
+  for (const url of jobRows.keys()) {
+    if (!current.has(url)) jobRows.delete(url);
+  }
+  const children = container.children;
+  const hidden = rows === jobs ? 0 : countLinks(linksFor(mode)) - items.length;
+  const more = $("jobs-more");
+  if (more) {
+    more.hidden = hidden <= 0;
+    setText(more, `và ${hidden} link nữa trong danh sách`);
+  }
+  if (children.length !== items.length || items.some((item, index) => children[index] !== item)) {
+    container.replaceChildren(...items);
+  }
+  renderProgress();
+}
 
-  const jobsContainer = $("jobs");
-  if (!jobsContainer) return;
+/* --------------------------------------------------------------------------
+   YouTube search
+   -------------------------------------------------------------------------- */
+const AGO_UNITS = [
+  [/^(s|secs?|seconds?)$/, "giây"],
+  [/^(m|mins?|minutes?)$/, "phút"],
+  [/^(h|hrs?|hours?)$/, "giờ"],
+  [/^(d|days?)$/, "ngày"],
+  [/^(w|wks?|weeks?)$/, "tuần"],
+  [/^(mo|mos|months?)$/, "tháng"],
+  [/^(y|yrs?|years?)$/, "năm"],
+];
 
-  jobsContainer.replaceChildren(...jobs.map((job) => {
-    const item = document.createElement("article");
-    item.className = `job ${job.status || ""}`;
-    const percent = Math.max(0, Math.min(100, Number(job.percent) || 0));
+// "6 months ago" / "2mo ago" / "Streamed 5h ago" → "6 tháng trước"
+function formatAgo(ago) {
+  const text = String(ago || "").trim();
+  const match = text.toLowerCase().match(/(\d+)\s*([a-z]+)\s+ago/);
+  const unit = match && AGO_UNITS.find(([pattern]) => pattern.test(match[2]));
+  return unit ? `${match[1]} ${unit[1]} trước` : text;
+}
 
-    let statusText = "Chờ tải";
-    if (job.status === "starting") statusText = "Khởi tạo";
-    else if (job.status === "downloading") statusText = "Đang tải";
-    else if (job.status === "merging") statusText = "Ghép file";
-    else if (job.status === "done") statusText = "Hoàn tất";
-    else if (job.status === "failed") statusText = "Lỗi";
+function selectedResults() {
+  return [...document.querySelectorAll("#search-results input:checked")]
+    .map((input) => searchResults[Number(input.dataset.index)])
+    .filter(Boolean);
+}
 
-    item.innerHTML = `
-      <div class="job-row">
-        <div class="job-info">
-          <span class="job-badge">${statusText}</span>
-          <span class="job-title" title="${job.title || job.url || ""}"></span>
-        </div>
-        <span class="job-meta"></span>
-      </div>
-      <div class="bar"><i></i></div>
-    `;
-
-    item.querySelector(".job-title").textContent = job.title || job.url || "Đang chuẩn bị tải...";
-    item.querySelector(".job-meta").textContent =
-      job.status === "failed"
-        ? (job.error || "Lỗi tải")
-        : `${percent.toFixed(1)}%${job.speed ? ` · ${job.speed}` : ""}`;
-    item.querySelector("i").style.width = `${percent}%`;
-
-    return item;
-  }));
-
-  const summaryText = $("summary")?.textContent || "0 / 0";
-  if ($("nav-progress-badge")) $("nav-progress-badge").textContent = summaryText;
-  if ($("stat-progress")) $("stat-progress").textContent = `${summaryText} bài`;
+function renderAddButton() {
+  const count = selectedResults().length;
+  const button = $("add-search");
+  if (!button) return;
+  button.disabled = count === 0;
+  setText(button, count ? `Thêm ${count} bài` : "Chọn bài để thêm");
+  const full = count ? `Thêm ${count} bài vào danh sách ${MODE_NAMES[mode]}` : "Chọn bài để thêm";
+  button.title = full;
+  // The destination follows the open tab, so it is restated whenever the tab changes.
+  setText($("search-count"), `${searchResults.length} video, mới đăng xếp trước · thêm vào ${MODE_NAMES[mode]}`);
+  button.setAttribute("aria-label", full);
+  const all = document.querySelectorAll("#search-results input").length;
+  const selectAll = $("select-all");
+  if (selectAll) {
+    selectAll.checked = all > 0 && count === all;
+    selectAll.indeterminate = count > 0 && count < all;
+  }
 }
 
 function renderSearchResults() {
+  const panel = $("search-panel");
   const container = $("search-results");
-  const actionsRow = $("add-search-row");
-  if (!container || !actionsRow) return;
-
-  container.hidden = searchResults.length === 0;
-  actionsRow.hidden = searchResults.length === 0;
-
-  if ($("search-count")) {
-    $("search-count").textContent = `${searchResults.length} video tìm thấy`;
-  }
+  if (!panel || !container) return;
+  const open = searchResults.length > 0 || Boolean(lastQuery);
+  panel.hidden = !open;
+  if ($("links-panel")) $("links-panel").hidden = open;
+  setText($("search-title"), lastQuery ? `Kết quả cho “${lastQuery}”` : "Kết quả tìm kiếm");
 
   container.replaceChildren(...searchResults.map((video, index) => {
     const row = document.createElement("label");
-    row.className = "search-result";
+    row.className = "result";
+    row.setAttribute("role", "listitem");
 
     const check = document.createElement("input");
     check.type = "checkbox";
     check.checked = true;
     check.dataset.index = String(index);
+    check.setAttribute("aria-label", video.title);
+
+    const thumb = document.createElement("img");
+    thumb.className = "result-thumb";
+    thumb.alt = "";
+    thumb.loading = "lazy";
+    if (video.thumbnail) thumb.src = video.thumbnail;
 
     const copy = document.createElement("span");
     copy.className = "result-copy";
-
     const title = document.createElement("span");
     title.className = "result-title";
     title.textContent = video.title;
     title.title = video.title;
+    const author = document.createElement("span");
+    author.className = "result-author";
+    // The age leads: the list is sorted newest first.
+    author.textContent = [formatAgo(video.ago), video.author].filter(Boolean).join(" · ") || "—";
+    copy.append(title, author);
 
-    const meta = document.createElement("span");
-    meta.className = "result-meta";
-    meta.textContent = [video.author, video.duration, video.ago].filter(Boolean).join(" · ");
+    const duration = document.createElement("span");
+    duration.className = "result-duration num";
+    duration.textContent = video.duration || "—";
 
-    copy.append(title, meta);
-    row.append(check, copy);
+    row.append(check, thumb, copy, duration);
     return row;
   }));
+  renderAddButton();
 }
 
-async function saveLinks() {
-  const linksValue = $("links") ? $("links").value : "";
-  await window.downloader.saveLinks({ mode, contents: linksValue });
-  if (state) {
-    state[mode === "video" ? "videoLinks" : "audioLinks"] = linksValue;
+async function runSearch(query) {
+  const button = $("search");
+  if (!query) {
+    setStatus("Hãy nhập tên bài hát hoặc ca sĩ cần tìm.", "error");
+    $("search-query")?.focus();
+    return;
   }
-  setStatus("Đã lưu danh sách liên kết.", "ready");
+  button.disabled = true;
+  setText(button, "Đang tìm…");
+  try {
+    searchResults = await window.downloader.searchYoutube({
+      query,
+      limit: Number($("search-limit")?.value || 20),
+    });
+    lastQuery = query;
+    renderSearchResults();
+    setStatus(
+      searchResults.length ? `Tìm thấy ${searchResults.length} video cho “${query}”.` : `Không tìm thấy video nào cho “${query}”.`,
+      searchResults.length ? "ready" : "subdued",
+      { toast: !searchResults.length },
+    );
+  } catch (error) {
+    setStatus(error, "error");
+  } finally {
+    button.disabled = false;
+    setText(button, "Tìm");
+  }
 }
 
 /* --------------------------------------------------------------------------
-   Theme Support (Dark / Light)
+   Theme
    -------------------------------------------------------------------------- */
-function initTheme() {
-  const saved = localStorage.getItem("app-theme");
-  const initialTheme = saved === "light" ? "light" : "dark";
-  setTheme(initialTheme);
+function storedTheme() {
+  try {
+    return localStorage.getItem("app-theme");
+  } catch {
+    return null;
+  }
 }
 
 function setTheme(nextTheme) {
   document.documentElement.setAttribute("data-theme", nextTheme);
-  localStorage.setItem("app-theme", nextTheme);
-  const toggleBtn = $("theme-toggle");
-  if (toggleBtn) {
-    toggleBtn.setAttribute("title", nextTheme === "dark" ? "Chuyển sang giao diện Sáng" : "Chuyển sang giao diện Tối");
+  try {
+    localStorage.setItem("app-theme", nextTheme);
+  } catch {
+    // The theme still applies for this session.
   }
   window.downloader?.setTheme?.(nextTheme).catch(() => {});
 }
 
 /* --------------------------------------------------------------------------
-   Sidebar Navigation, Safe Section Scrolling & Scroll Spy
-   -------------------------------------------------------------------------- */
-function scrollToSection(targetId) {
-  const contentArea = document.querySelector(".app-content");
-  const targetElement = $(targetId);
-  if (contentArea && targetElement) {
-    const contentRect = contentArea.getBoundingClientRect();
-    const targetRect = targetElement.getBoundingClientRect();
-    const currentScroll = contentArea.scrollTop;
-    const targetY = currentScroll + (targetRect.top - contentRect.top) - 8;
-    contentArea.scrollTo({ top: Math.max(0, targetY), behavior: "smooth" });
-    targetElement.classList.add("highlight-pulse");
-    setTimeout(() => targetElement.classList.remove("highlight-pulse"), 800);
-  }
-}
-
-function setupSidebarNavigation() {
-  const navLinks = document.querySelectorAll(".nav-link[data-target]");
-  navLinks.forEach((link) => {
-    link.addEventListener("click", () => {
-      navLinks.forEach((item) => item.classList.remove("active"));
-      link.classList.add("active");
-      scrollToSection(link.dataset.target);
-    });
-  });
-
-  // Scroll Spy: Cập nhật active nav link khi cuộn
-  const contentArea = document.querySelector(".app-content");
-  if (contentArea) {
-    contentArea.addEventListener("scroll", () => {
-      const scrollPos = contentArea.scrollTop + 60;
-      const sections = ["section-search", "section-links", "section-config", "section-progress"]
-        .map((id) => $(id))
-        .filter(Boolean);
-
-      for (let i = sections.length - 1; i >= 0; i--) {
-        const sec = sections[i];
-        if (sec.offsetTop <= scrollPos) {
-          const targetId = sec.id === "section-storage" ? "section-config" : sec.id;
-          const activeNav = document.querySelector(`.nav-link[data-target="${targetId}"]`);
-          if (activeNav && !activeNav.classList.contains("active")) {
-            navLinks.forEach((item) => item.classList.remove("active"));
-            activeNav.classList.add("active");
-          }
-          break;
-        }
-      }
-    }, { passive: true });
-  }
-
-  // Window scroll lock: Khóa cố định window và body luôn ở (0, 0), tránh bị giật hoặc cắt header
-  window.addEventListener("scroll", () => {
-    if (window.scrollY !== 0 || window.scrollX !== 0) {
-      window.scrollTo(0, 0);
-    }
-  }, { passive: true });
-
-  // Chuyển tiếp lăn chuột khi hover ở header hoặc status bar vào vùng nội dung chính
-  const appMain = document.querySelector(".app-main");
-  if (appMain && contentArea) {
-    appMain.addEventListener("wheel", (e) => {
-      if (e.target.closest(".app-header, .app-statusbar")) {
-        contentArea.scrollTop += e.deltaY;
-      }
-    }, { passive: true });
-  }
-}
-
-/* --------------------------------------------------------------------------
-   App Initialization
+   Initialisation
    -------------------------------------------------------------------------- */
 async function initialize() {
-  initTheme();
-  setupSidebarNavigation();
-
+  setTheme(storedTheme() === "light" ? "light" : "dark");
   state = await window.downloader.state();
-  renderOutputDirectory(state.outputDirectory);
+  setText($("app-version"), state.version ? `v${state.version}` : "");
   switchMode("video");
-
-  const statusMsg = state.update?.available
-    ? `Phiên bản v${state.version}. Sẵn sàng kiểm tra bản mới.`
-    : `Phiên bản v${state.version}. Hệ thống sẵn sàng.`;
-  setStatus(statusMsg, "subdued");
+  renderOutputDirectory(state.outputDirectory);
+  setStatus(
+    state.update?.available ? `Phiên bản v${state.version}. Sẵn sàng kiểm tra bản mới.` : `Phiên bản v${state.version}.`,
+    "subdued",
+    { toast: false },
+  );
 }
 
 /* --------------------------------------------------------------------------
-   Event Listeners
+   Events
    -------------------------------------------------------------------------- */
+window.addEventListener("scroll", () => {
+  $("topbar")?.classList.toggle("scrolled", window.scrollY > 0);
+}, { passive: true });
+
 $("theme-toggle")?.addEventListener("click", () => {
   const current = document.documentElement.getAttribute("data-theme") || "dark";
-  const next = current === "dark" ? "light" : "dark";
-  setTheme(next);
+  setTheme(current === "dark" ? "light" : "dark");
 });
 
-$("links")?.addEventListener("input", updateLinkCount);
+$("links")?.addEventListener("input", renderCounts);
 
 document.querySelectorAll(".tab").forEach((tab) => {
   tab.addEventListener("click", async () => {
+    if (tab.dataset.mode === mode) return;
     try {
       await saveLinks();
       switchMode(tab.dataset.mode);
     } catch (error) {
-      setStatus(error.message, "error");
+      setStatus(error, "error");
     }
   });
 });
 
 $("save-links")?.addEventListener("click", () => {
-  saveLinks().catch((error) => setStatus(error.message, "error"));
+  saveLinks({ notify: true }).catch((error) => setStatus(error, "error"));
 });
 
-/* YouTube Search */
-$("search")?.addEventListener("click", async () => {
-  const button = $("search");
-  const query = $("search-query")?.value?.trim();
-  if (!query) {
-    setStatus("Hãy nhập từ khóa hoặc tên bài hát cần tìm.", "error");
-    $("search-query")?.focus();
-    return;
-  }
-
-  try {
-    button.disabled = true;
-    button.innerHTML = `
-      <svg class="spin-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="12" y1="2" x2="12" y2="6"></line>
-        <line x1="12" y1="18" x2="12" y2="22"></line>
-        <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line>
-        <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line>
-        <line x1="2" y1="12" x2="6" y2="12"></line>
-        <line x1="18" y1="12" x2="22" y2="12"></line>
-        <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line>
-        <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line>
-      </svg>
-      <span>Đang tìm...</span>
-    `;
-
-    searchResults = await window.downloader.searchYoutube({
-      query: query,
-      limit: Number($("search-limit")?.value || 20),
-    });
-
-    renderSearchResults();
-    setStatus(
-      searchResults.length
-        ? `Đã tìm thấy ${searchResults.length} video phù hợp trên YouTube.`
-        : "Không tìm thấy video nào.",
-      searchResults.length ? "ready" : "subdued"
-    );
-  } catch (error) {
-    setStatus(error.message, "error");
-  } finally {
-    button.disabled = false;
-    button.innerHTML = `
-      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="11" cy="11" r="8"></circle>
-        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-      </svg>
-      <span>Tìm kiếm</span>
-    `;
-  }
-});
-
-$("search-query")?.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") $("search")?.click();
-});
-
-/* Toggle all search checkboxes */
-$("btn-toggle-all-search")?.addEventListener("click", () => {
-  const checkboxes = document.querySelectorAll("#search-results input[type='checkbox']");
-  if (!checkboxes.length) return;
-  const anyChecked = [...checkboxes].some((cb) => cb.checked);
-  checkboxes.forEach((cb) => (cb.checked = !anyChecked));
-  $("btn-toggle-all-search").textContent = anyChecked ? "Chọn tất cả" : "Bỏ chọn tất cả";
-});
-
-/* Add selected search items to link textarea */
-$("add-search")?.addEventListener("click", async () => {
-  try {
-    const selected = [...document.querySelectorAll("#search-results input:checked")]
-      .map((input) => searchResults[Number(input.dataset.index)]?.url)
-      .filter(Boolean);
-
-    if (!selected.length) {
-      setStatus("Hãy chọn ít nhất một video trong danh sách kết quả.", "error");
-      return;
-    }
-
-    const currentText = $("links")?.value || "";
-    const existing = new Set(currentText.split(/\r?\n/).map((line) => line.trim()).filter(Boolean));
-    const newUrls = selected.filter((url) => !existing.has(url));
-
-    $("links").value = [currentText.trim(), ...newUrls].filter(Boolean).join("\n");
-    updateLinkCount();
-    await saveLinks();
-
-    setStatus(
-      newUrls.length
-        ? `Đã thêm ${newUrls.length} liên kết vào danh sách ${mode === "video" ? "Video" : "MP3"}.`
-        : "Các liên kết đã chọn đều đã có sẵn trong danh sách.",
-      "ready"
-    );
-  } catch (error) {
-    setStatus(error.message, "error");
-  }
-});
-
-/* Editor Helper Actions */
 $("btn-clear-links")?.addEventListener("click", async () => {
   if (!$("links").value.trim()) return;
-  if (confirm("Bạn có chắc chắn muốn xóa toàn bộ liên kết hiện tại?")) {
+  if (!confirm(`Xoá toàn bộ link ${MODE_NAMES[mode]} trong danh sách?`)) return;
+  try {
     $("links").value = "";
-    updateLinkCount();
+    renderCounts();
     await saveLinks();
-    setStatus("Đã làm trống danh sách liên kết.", "subdued");
+    setStatus(`Đã xoá danh sách link ${MODE_NAMES[mode]}.`, "subdued");
+  } catch (error) {
+    setStatus(error, "error");
   }
 });
 
-/* Folder and Output Directory Actions */
-$("open-output")?.addEventListener("click", () => {
-  window.downloader.openOutput().catch((error) => setStatus(error.message, "error"));
+$("search-form")?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  runSearch($("search-query")?.value?.trim());
 });
 
-$("sidebar-open-folder")?.addEventListener("click", () => {
-  window.downloader.openOutput().catch((error) => setStatus(error.message, "error"));
+$("search-limit")?.addEventListener("change", () => {
+  if (lastQuery) runSearch(lastQuery);
 });
+
+$("search-results")?.addEventListener("change", renderAddButton);
+
+$("select-all")?.addEventListener("change", (event) => {
+  const checked = event.target.checked;
+  document.querySelectorAll("#search-results input[type='checkbox']").forEach((cb) => (cb.checked = checked));
+  renderAddButton();
+});
+
+function closeSearch() {
+  searchResults = [];
+  lastQuery = "";
+  renderSearchResults();
+}
+
+$("search-close")?.addEventListener("click", closeSearch);
+
+// Esc closes the results and brings the link list back.
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !$("search-panel")?.hidden) closeSearch();
+});
+
+$("add-search")?.addEventListener("click", async () => {
+  try {
+    const selected = selectedResults().map((video) => video.url);
+    if (!selected.length) return;
+    const currentText = $("links")?.value || "";
+    const existing = new Set(linkLines(currentText));
+    const newUrls = selected.filter((url) => !existing.has(url));
+    $("links").value = [currentText.trim(), ...newUrls].filter(Boolean).join("\n");
+    renderCounts();
+    await saveLinks();
+    closeSearch();
+    setStatus(
+      newUrls.length
+        ? `Đã thêm ${newUrls.length} bài vào danh sách ${MODE_NAMES[mode]}.`
+        : "Các bài đã chọn đều có sẵn trong danh sách.",
+      "ready",
+    );
+  } catch (error) {
+    setStatus(error, "error");
+  }
+});
+
+$("empty-search")?.addEventListener("click", () => $("search-query")?.focus());
+$("empty-paste")?.addEventListener("click", () => $("links")?.focus());
+
+function openOutputFolder() {
+  window.downloader.openOutput().catch((error) => setStatus(error, "error"));
+}
+$("open-output")?.addEventListener("click", openOutputFolder);
 
 $("choose-output-directory")?.addEventListener("click", async () => {
   try {
     const directory = await window.downloader.chooseOutputDirectory();
     state.outputDirectory = directory;
     renderOutputDirectory(directory);
-    setStatus("Đã cập nhật thư mục lưu trữ file.", "ready");
+    setStatus(`Sẽ lưu vào ${folderName(directory)}.`, "ready");
   } catch (error) {
-    setStatus(error.message, "error");
+    setStatus(error, "error");
   }
 });
 
-/* Download Execution Control */
+function setRunning(isRunning) {
+  running = isRunning;
+  if ($("stop")) $("stop").disabled = !isRunning;
+  renderJobs();
+  renderSummary();
+}
+
 $("start")?.addEventListener("click", async () => {
   try {
     await saveLinks();
     jobs = [];
+    runMode = mode;
     renderJobs();
-    running = true;
-    $("start").disabled = true;
-    $("stop").disabled = false;
-    $("progress-heading").textContent = "Đang kết nối yt-dlp & chuẩn bị tải...";
-
-    // Smooth scroll to progress monitor section
-    scrollToSection("section-progress");
-
+    setText($("progress-heading"), "Đang chuẩn bị…");
+    setRunning(true);
     await window.downloader.start({ mode, outputDirectory: state.outputDirectory || "" });
   } catch (error) {
-    running = false;
-    $("stop").disabled = true;
-    $("start").disabled = false;
-    setStatus(error.message, "error");
+    setRunning(false);
+    setStatus(error, "error");
   }
 });
 
 $("stop")?.addEventListener("click", () => {
-  window.downloader.stop();
-  setStatus("Đã gửi yêu cầu dừng tiến trình tải.", "subdued");
+  if ($("stop")) $("stop").disabled = true;
+  window.downloader.stop().catch((error) => setStatus(error, "error"));
+  setStatus("Đang dừng… các bài đã tải xong vẫn được giữ lại.", "subdued");
 });
 
-/* Updater */
 $("update")?.addEventListener("click", async () => {
-  const result = await window.downloader.checkUpdate();
-  if (result?.text) setStatus(result.text, result.state === "unconfigured" ? "error" : "subdued");
-  if (result?.state === "unconfigured") window.downloader.showUpdateHelp();
+  try {
+    const result = await window.downloader.checkUpdate();
+    if (result?.text) setStatus(result.text, result.state === "unconfigured" ? "error" : "subdued");
+    if (result?.state === "unconfigured") await window.downloader.showUpdateHelp();
+  } catch (error) {
+    setStatus(error, "error");
+  }
 });
 
-/* Author & Contact Links */
-function openZaloContact(event) {
-  if (event) event.preventDefault();
-  const zaloUrl = "https://zalo.me/sadboyyzz";
-  if (window.downloader?.openExternal) {
-    window.downloader.openExternal(zaloUrl);
-  } else {
-    window.open(zaloUrl, "_blank");
-  }
-}
+$("author-zalo-btn")?.addEventListener("click", () => {
+  window.downloader?.openExternal?.("https://zalo.me/sadboyyzz");
+});
 
-$("author-zalo-btn")?.addEventListener("click", openZaloContact);
-$("statusbar-author-link")?.addEventListener("click", openZaloContact);
-
-/* Downloader IPC Stream Events */
+/* Runner events */
+let completed = false;
 window.downloader.onDownload((event) => {
   if (event.type === "status") {
-    if ($("progress-heading")) $("progress-heading").textContent = event.message || "Đang xử lý...";
+    setText($("progress-heading"), event.message || "Đang xử lý…");
   }
   if (event.type === "jobs") {
     jobs = event.jobs || [];
-    if ($("summary")) $("summary").textContent = `${event.done || 0} / ${jobs.length}`;
-    if ($("progress-heading")) $("progress-heading").textContent = event.heading || "Đang tải xuống dữ liệu...";
+    setText($("progress-heading"), "Đang tải");
     renderJobs();
+    renderSummary();
   }
   if (event.type === "complete") {
-    if ($("progress-heading")) {
-      $("progress-heading").textContent = event.failed ? "Tải hoàn tất (có bài lỗi)" : "Đã tải xong toàn bộ danh sách";
-    }
-    setStatus(event.message, event.failed ? "error" : "ready");
+    completed = true;
+    const heading = event.stopped ? "Đã dừng" : event.failed ? "Xong, có bài lỗi" : "Đã tải xong";
+    setText($("progress-heading"), heading);
+    setStatus(event.message, event.failed ? "error" : event.stopped ? "subdued" : "ready");
+    // The runner has already updated the link file: reload it before anything can save over it.
+    syncLinksAfterRun();
   }
   if (event.type === "error") {
     setStatus(event.message, "error");
   }
   if (event.type === "runner-closed") {
-    running = false;
-    if ($("start")) $("start").disabled = false;
-    if ($("stop")) $("stop").disabled = true;
+    setRunning(false);
+    if (!completed) syncLinksAfterRun();
+    completed = false;
   }
 });
 
+// Progress ticks while an update downloads only refresh the status line;
+// a toast per tick would stack dozens of them.
+const QUIET_UPDATE_STATES = new Set(["checking", "downloading"]);
 window.downloader.onUpdate((event) => {
-  setStatus(event.text, event.state === "error" ? "error" : event.state === "ready" ? "ready" : "subdued");
+  const type = event.state === "error" ? "error" : event.state === "ready" ? "ready" : "subdued";
+  setStatus(event.text, type, { toast: !QUIET_UPDATE_STATES.has(event.state) });
 });
 
-initialize().catch((error) => setStatus(error.message, "error"));
+initialize().catch((error) => setStatus(error, "error"));

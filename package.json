@@ -1,6 +1,6 @@
 {
   "name": "chepnhacthenho",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "author": "Nguyễn Phi Hoàng",
   "private": true,
   "main": "desktop-main.js",
@@ -28,6 +28,7 @@
       "1.js",
       "desktop-main.js",
       "preload.js",
+      "lib{,/**/*}",
       "package.json",
       "node_modules/**"
     ],
