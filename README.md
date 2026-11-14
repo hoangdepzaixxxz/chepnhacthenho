@@ -1,6 +1,6 @@
 # Chép Nhạc Thẻ Nhớ
 
-Ứng dụng Windows có giao diện để tải Video 720p hoặc Voice MP3 từ danh sách link YouTube.
+Ứng dụng Windows có giao diện để tải Video (Nhanh 360p hoặc Nét 720p) hoặc Voice MP3 từ danh sách link YouTube. Nhạc nền chill có danh sách bài để chọn bằng ảnh bìa.
 
 ## Chạy và tạo bộ cài
 

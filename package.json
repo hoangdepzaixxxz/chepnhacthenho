@@ -1,11 +1,12 @@
 {
   "name": "chepnhacthenho",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "author": "Nguyễn Phi Hoàng",
   "private": true,
   "main": "desktop-main.js",
   "bin": "1.js",
   "scripts": {
+    "test": "node --test \"tests/*.test.js\"",
     "start": "electron .",
     "build:exe": "electron-builder --win nsis --publish never",
     "release": "electron-builder --win nsis --publish always"

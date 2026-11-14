@@ -61,10 +61,16 @@ const MAX_PARALLEL_DOWNLOADS = 10;
 // download over a single connection.
 const FRAGMENT_THREADS_PER_VIDEO = 16;
 
-// yt-dlp's default YouTube clients return real 720p formats. On some networks those
-// streams answer 403; the android client still works there, but only up to 360p,
-// so it is used as a fallback instead of always.
-const FALLBACK_CLIENT_ARGS = ["--extractor-args", "youtube:player_client=android"];
+// yt-dlp's default YouTube clients return real 720p formats. The android client only
+// offers 360p, but that file is a third of the size and needs no JS challenge, so a
+// video finishes about twice as fast (10-15 s instead of ~27 s, measured 2026-11-05).
+// "fast" video quality uses it from the start, as version 1.5.0 did; "hd" video and
+// MP3 use it only as a fallback for networks where the default streams answer 403.
+const ANDROID_CLIENT_ARGS = ["--extractor-args", "youtube:player_client=android"];
+const VIDEO_QUALITIES = {
+  fast: { menuName: "TẢI VIDEO 360P · NHANH", clientArgs: ANDROID_CLIENT_ARGS },
+  hd: { menuName: "TẢI VIDEO 720P", clientArgs: [] },
+};
 const FALLBACK_ERROR = /HTTP Error 403|Forbidden|Requested format is not available|page needs to be reloaded/i;
 // A link is only treated as dead (and removed from the list) when the extractor
 // itself says so. YouTube's rate limit also starts with "Video unavailable", so
@@ -955,11 +961,12 @@ async function downloadMedia(job, ffmpegDirectory, jobs) {
   job.status = "starting";
   scheduleRender(jobs);
 
-  let result = await runYtDlp(job, ytDlpArgs(job.url, ffmpegDirectory, []), jobs);
-  if (!result.ok && !stopRequested && FALLBACK_ERROR.test(result.error)) {
+  const clientArgs = activeMode.clientArgs || [];
+  let result = await runYtDlp(job, ytDlpArgs(job.url, ffmpegDirectory, clientArgs), jobs);
+  if (!result.ok && !stopRequested && clientArgs !== ANDROID_CLIENT_ARGS && FALLBACK_ERROR.test(result.error)) {
     Object.assign(job, { status: "starting", percent: 0, speed: "", eta: "", downloadedSize: "", totalSize: "" });
     scheduleRender(jobs);
-    result = await runYtDlp(job, ytDlpArgs(job.url, ffmpegDirectory, FALLBACK_CLIENT_ARGS), jobs);
+    result = await runYtDlp(job, ytDlpArgs(job.url, ffmpegDirectory, ANDROID_CLIENT_ARGS), jobs);
   }
 
   if (result.ok) {
@@ -1078,15 +1085,17 @@ async function main() {
 
 async function runDesktopSession() {
   const mode = commandOption("--mode");
+  const quality = commandOption("--quality") || "hd";
   const requestedOutputDirectory = commandOption("--output-dir");
   if (!Object.hasOwn(MODES, mode)) throw new Error("Chế độ tải không hợp lệ.");
+  if (!Object.hasOwn(VIDEO_QUALITIES, quality)) throw new Error("Chất lượng video không hợp lệ.");
   if (!requestedOutputDirectory || !path.isAbsolute(requestedOutputDirectory)) throw new Error("Thư mục lưu không hợp lệ.");
 
   const outputDirectory = path.resolve(requestedOutputDirectory);
   fs.mkdirSync(outputDirectory, { recursive: true });
   if (!fs.statSync(outputDirectory).isDirectory()) throw new Error("Đường dẫn lưu không phải là thư mục.");
 
-  activeMode = { ...MODES[mode], outputDir: outputDirectory };
+  activeMode = { ...MODES[mode], ...(mode === "video" ? VIDEO_QUALITIES[quality] : {}), outputDir: outputDirectory };
   const links = readLinks(activeMode.linkFile);
   if (links.length === 0) {
     desktopEvent("complete", { failed: 0, succeeded: 0, message: "Chưa có link để tải." });

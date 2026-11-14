@@ -16,7 +16,18 @@ let linksSync = null; // pending reload of the link files after a run
 const $ = (id) => document.getElementById(id);
 const linksKey = (linkMode) => (linkMode === "video" ? "videoLinks" : "audioLinks");
 const MODE_NAMES = { video: "Video", audio: "MP3" };
-const FORMAT_NOTES = { video: "MP4 · H.264 · tối đa 720p", audio: "MP3 · chất lượng cao nhất" };
+// Video comes in two qualities: "fast" (360p, about twice as fast) and "hd" (720p).
+const FORMAT_NOTES = {
+  fast: "MP4 · 360p · file nhỏ, tải nhanh",
+  hd: "MP4 · H.264 · tối đa 720p",
+  audio: "MP3 · chất lượng cao nhất",
+};
+const VIDEO_QUALITIES = ["fast", "hd"];
+let videoQuality = "fast";
+
+function formatNote() {
+  return FORMAT_NOTES[mode === "video" ? videoQuality : "audio"];
+}
 
 function readableError(error) {
   return String(error?.message || error || "Đã xảy ra lỗi.")
@@ -93,7 +104,14 @@ function renderCounts() {
   setText($("count-video"), String(countLinks(linksFor("video"))));
   setText($("count-audio"), String(countLinks(linksFor("audio"))));
   renderSummary();
+  renderStartButton();
   if (!jobs.length) renderJobs();
+}
+
+// Start needs at least one link in the open tab and no run in progress. Recomputed whenever
+// either changes, including while the finished run's rows are still on screen.
+function renderStartButton() {
+  if ($("start")) $("start").disabled = running || countLinks(linksFor(mode)) === 0;
 }
 
 // Saves the textarea for the open tab. Only the Save button shows a toast; automatic
@@ -179,7 +197,8 @@ function switchMode(nextMode) {
   });
   const linksEl = $("links");
   if (linksEl) linksEl.value = state[linksKey(mode)] || "";
-  setText($("format-note"), FORMAT_NOTES[mode]);
+  if ($("video-quality")) $("video-quality").hidden = mode !== "video";
+  setText($("format-note"), formatNote());
   setText($("links-title"), `Link ${MODE_NAMES[mode]} chờ tải`);
   renderAddButton();
   renderCounts();
@@ -293,7 +312,7 @@ function renderProgress() {
   const empty = $("empty-progress");
   if (empty) empty.hidden = jobs.length > 0 || running || count > 0;
   setText($("empty-mode"), MODE_NAMES[mode]);
-  if ($("start")) $("start").disabled = running || count === 0;
+  renderStartButton();
 }
 
 const QUEUE_PREVIEW_ROWS = 12;
@@ -465,7 +484,7 @@ async function runSearch(query) {
    -------------------------------------------------------------------------- */
 function storedTheme() {
   try {
-    return localStorage.getItem("app-theme");
+    return localStorage.getItem("app-theme-2");
   } catch {
     return null;
   }
@@ -474,7 +493,7 @@ function storedTheme() {
 function setTheme(nextTheme) {
   document.documentElement.setAttribute("data-theme", nextTheme);
   try {
-    localStorage.setItem("app-theme", nextTheme);
+    localStorage.setItem("app-theme-2", nextTheme);
   } catch {
     // The theme still applies for this session.
   }
@@ -482,10 +501,36 @@ function setTheme(nextTheme) {
 }
 
 /* --------------------------------------------------------------------------
+   Video quality, remembered between sessions
+   -------------------------------------------------------------------------- */
+function setVideoQuality(quality, { persist = true } = {}) {
+  videoQuality = VIDEO_QUALITIES.includes(quality) ? quality : "fast";
+  document.querySelectorAll('input[name="video-quality"]').forEach((input) => {
+    input.checked = input.value === videoQuality;
+  });
+  setText($("format-note"), formatNote());
+  if (!persist) return;
+  try {
+    localStorage.setItem("video-quality", videoQuality);
+  } catch {
+    // The choice still applies for this session.
+  }
+}
+
+function storedVideoQuality() {
+  try {
+    return localStorage.getItem("video-quality");
+  } catch {
+    return null;
+  }
+}
+
+/* --------------------------------------------------------------------------
    Initialisation
    -------------------------------------------------------------------------- */
 async function initialize() {
-  setTheme(storedTheme() === "light" ? "light" : "dark");
+  setTheme(storedTheme() === "dark" ? "dark" : "light");
+  setVideoQuality(storedVideoQuality(), { persist: false });
   state = await window.downloader.state();
   setText($("app-version"), state.version ? `v${state.version}` : "");
   switchMode("video");
@@ -505,11 +550,17 @@ window.addEventListener("scroll", () => {
 }, { passive: true });
 
 $("theme-toggle")?.addEventListener("click", () => {
-  const current = document.documentElement.getAttribute("data-theme") || "dark";
+  const current = document.documentElement.getAttribute("data-theme") || "light";
   setTheme(current === "dark" ? "light" : "dark");
 });
 
 $("links")?.addEventListener("input", renderCounts);
+
+document.querySelectorAll('input[name="video-quality"]').forEach((input) => {
+  input.addEventListener("change", () => {
+    if (input.checked) setVideoQuality(input.value);
+  });
+});
 
 document.querySelectorAll(".tab").forEach((tab) => {
   tab.addEventListener("click", async () => {
@@ -626,7 +677,7 @@ $("start")?.addEventListener("click", async () => {
     renderJobs();
     setText($("progress-heading"), "Đang chuẩn bị…");
     setRunning(true);
-    await window.downloader.start({ mode, outputDirectory: state.outputDirectory || "" });
+    await window.downloader.start({ mode, quality: videoQuality, outputDirectory: state.outputDirectory || "" });
   } catch (error) {
     setRunning(false);
     setStatus(error, "error");

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="vi" data-theme="dark">
+<html lang="vi" data-theme="light">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,7 +9,7 @@
     <link rel="icon" href="assets/app.ico">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
@@ -17,9 +17,11 @@
     <header id="topbar" class="topbar">
       <div class="column topbar-inner">
         <div class="brand">
-          <img src="assets/logo.png" alt="" class="brand-mark" width="28" height="28">
-          <span class="brand-name">AutoMusic Pro</span>
-          <span class="brand-scope">Chép nhạc thẻ nhớ</span>
+          <img src="assets/logo.png" alt="" class="brand-mark" width="40" height="40">
+          <span class="brand-text">
+            <span class="brand-name">AutoMusic Pro</span>
+            <span class="brand-scope">Chép Nhạc Thẻ Nhớ</span>
+          </span>
         </div>
 
         <form id="search-form" class="search" role="search">
@@ -28,14 +30,18 @@
           <button id="search" class="search-submit" type="submit">Tìm</button>
         </form>
 
-        <div class="player" aria-label="Nhạc nền">
-          <img id="music-cover" class="player-cover" alt="" width="32" height="32" hidden>
-          <span id="music-cover-blank" class="player-cover player-cover-blank" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="16" height="16"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
-          </span>
-          <button id="music-link" class="player-meta" type="button" title="Mở bài này trên SoundCloud">
-            <span id="music-title" class="player-title">Nhạc nền chill</span>
-            <span id="music-artist" class="player-artist">SoundCloud</span>
+        <div id="player" class="player" role="group" aria-label="Nhạc nền">
+          <!-- What is playing; opens the list of tracks to pick from -->
+          <button id="music-pick" class="player-now" type="button" aria-expanded="false" aria-controls="music-list" title="Chọn bài nhạc nền">
+            <img id="music-cover" class="player-cover" alt="" width="40" height="40" hidden>
+            <span id="music-cover-blank" class="player-cover player-cover-blank" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="18" height="18"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+            </span>
+            <span class="player-meta">
+              <span id="music-title" class="player-title">Nhạc nền chill</span>
+              <span id="music-artist" class="player-artist">SoundCloud</span>
+            </span>
+            <svg class="player-chevron" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
           </button>
           <div class="player-controls">
             <button id="music-prev" class="icon-btn" type="button" aria-label="Bài trước" title="Bài trước">
@@ -49,9 +55,25 @@
               <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="m5 4 10 8-10 8z"></path><path d="M19 5v14"></path></svg>
             </button>
           </div>
+
+          <!-- The track list: click a cover (or anywhere on a row) to play that track -->
+          <div id="music-list" class="playlist" hidden>
+            <div class="playlist-head">
+              <p class="playlist-title">Nhạc nền chill Việt</p>
+              <p id="music-count" class="meta">Bấm vào một bài để phát</p>
+            </div>
+            <ul id="music-tracks" class="playlist-tracks"></ul>
+            <div class="playlist-foot">
+              <button id="music-open" class="link-btn" type="button">Mở bài đang phát trên SoundCloud</button>
+            </div>
+          </div>
         </div>
 
         <div class="topbar-tools">
+          <div class="view-switch" role="tablist" aria-label="Màn hình">
+            <button id="nav-downloads" class="view-tab" type="button" role="tab" aria-selected="true">Tải nhạc</button>
+            <button id="nav-android" class="view-tab" type="button" role="tab" aria-selected="false">Thiết bị Android</button>
+          </div>
           <button id="update" class="icon-btn" type="button" aria-label="Kiểm tra bản cập nhật" title="Kiểm tra bản cập nhật">
             <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"></path><path d="M21 4v5h-5"></path></svg>
           </button>
@@ -63,7 +85,7 @@
       </div>
     </header>
 
-    <main class="column page">
+    <main class="column page" id="downloads-view">
       <!-- Title row: the screen's name, what is queued and where it goes, the one primary action -->
       <div class="title-row">
         <div>
@@ -87,9 +109,20 @@
       </div>
 
       <div class="tabs" role="tablist" aria-label="Định dạng tải">
-        <button class="tab" role="tab" type="button" data-mode="video" aria-selected="true">Video 720p <span id="count-video" class="tab-count num">0</span></button>
+        <button class="tab" role="tab" type="button" data-mode="video" aria-selected="true">Video <span id="count-video" class="tab-count num">0</span></button>
         <button class="tab" role="tab" type="button" data-mode="audio" aria-selected="false">MP3 <span id="count-audio" class="tab-count num">0</span></button>
-        <span id="format-note" class="tabs-note">MP4 · H.264 · tối đa 720p</span>
+        <!-- Video only: the fast 360p file is a third of the size of the 720p one -->
+        <div id="video-quality" class="quality" role="radiogroup" aria-label="Chất lượng video">
+          <label class="quality-option" title="File nhỏ, mỗi bài xong nhanh gấp khoảng 2 lần">
+            <input type="radio" name="video-quality" value="fast" checked>
+            <span>Nhanh · 360p</span>
+          </label>
+          <label class="quality-option" title="Hình nét hơn, file lớn hơn nên tải lâu hơn">
+            <input type="radio" name="video-quality" value="hd">
+            <span>Nét · 720p</span>
+          </label>
+        </div>
+        <span id="format-note" class="tabs-note">MP4 · 360p · tải nhanh</span>
       </div>
 
       <div class="grid">
@@ -104,7 +137,7 @@
             <p id="progress-note" class="meta num"></p>
           </div>
           <div id="strip" class="strip" aria-hidden="true"></div>
-          <div id="empty-progress" class="empty" hidden>
+          <div id="empty-progress" class="empty">
             <p class="empty-title">Danh sách <span id="empty-mode">Video</span> đang trống</p>
             <p>Tìm bài trên YouTube rồi chọn bài muốn tải, hoặc dán sẵn link vào danh sách. Mỗi bài sẽ hiện ở đây cùng tiến độ tải.</p>
             <div class="empty-actions">
@@ -168,10 +201,78 @@
       </footer>
     </main>
 
+    <main class="column page" id="android-view" hidden>
+      <div class="title-row">
+        <div>
+          <h1>Thiết bị Android</h1>
+          <p class="sub"><span id="adb-sub">Cắm điện thoại qua cáp USB, bật Gỡ lỗi USB rồi bấm Làm mới.</span></p>
+        </div>
+        <div class="title-actions">
+          <button id="adb-refresh" class="btn primary" type="button">Làm mới thiết bị</button>
+        </div>
+      </div>
+
+      <section class="panel" aria-labelledby="adb-path-title">
+        <header class="panel-head">
+          <div>
+            <h2 id="adb-path-title">Đường dẫn ADB</h2>
+            <p id="adb-path-status" class="meta">Để trống để dùng adb trong PATH của hệ thống.</p>
+          </div>
+        </header>
+        <div class="adb-path-row">
+          <input id="adb-path" type="text" spellcheck="false" autocomplete="off" placeholder="Để trống = tự tải / dùng PATH, hoặc trỏ tới adb.exe">
+          <button id="adb-browse" class="btn ghost" type="button">Chọn file…</button>
+          <button id="adb-save-path" class="btn" type="button">Lưu</button>
+          <button id="adb-download" class="btn primary" type="button">Tự tải adb</button>
+        </div>
+      </section>
+
+      <div class="grid">
+        <section class="panel adb-col" aria-labelledby="adb-devices-title">
+          <header class="panel-head">
+            <div>
+              <h2 id="adb-devices-title">Thiết bị</h2>
+              <p id="adb-device-count" class="meta">Chưa quét</p>
+            </div>
+          </header>
+          <ul id="adb-devices" class="adb-list"></ul>
+          <div id="adb-device-empty" class="empty" hidden>
+            <p class="empty-title">Chưa thấy thiết bị nào</p>
+            <p>Cắm điện thoại qua USB, mở Cài đặt → Tùy chọn nhà phát triển → bật Gỡ lỗi USB, rồi bấm Làm mới. Nếu hiện "chưa cấp quyền", hãy đồng ý cửa sổ hiện trên điện thoại.</p>
+          </div>
+        </section>
+
+        <section class="panel adb-col" aria-labelledby="adb-apps-title">
+          <header class="panel-head">
+            <div>
+              <h2 id="adb-apps-title">Ứng dụng</h2>
+              <p id="adb-app-count" class="meta">Chọn một thiết bị</p>
+            </div>
+            <div class="panel-actions">
+              <button id="adb-install" class="btn" type="button" disabled>Cài APK…</button>
+              <button id="adb-scan" class="btn ghost" type="button" disabled>Quét app nghi ngờ</button>
+            </div>
+          </header>
+          <ul id="adb-apps" class="adb-list"></ul>
+        </section>
+      </div>
+
+      <section class="panel" id="adb-scan-panel" aria-labelledby="adb-scan-title" hidden>
+        <header class="panel-head">
+          <div>
+            <h2 id="adb-scan-title">App nghi ngờ — cần bạn tự xem lại</h2>
+            <p id="adb-scan-note" class="meta">Đây chỉ là gợi ý theo tên package, có thể nhầm. Không có gì tự gỡ.</p>
+          </div>
+        </header>
+        <ul id="adb-scan-results" class="adb-list adb-scan"></ul>
+      </section>
+    </main>
+
     <div id="toast-container" class="toast-container" aria-live="polite"></div>
     <span id="music-status" class="visually-hidden" role="status"></span>
 
     <script src="music.js"></script>
     <script src="renderer.js"></script>
+    <script src="android.js"></script>
   </body>
 </html>

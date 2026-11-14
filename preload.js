@@ -16,3 +16,19 @@ contextBridge.exposeInMainWorld("downloader", {
   onDownload: (listener) => ipcRenderer.on("download-event", (_event, data) => listener(data)),
   onUpdate: (listener) => ipcRenderer.on("update-status", (_event, data) => listener(data)),
 });
+
+contextBridge.exposeInMainWorld("android", {
+  getAdbPath: () => ipcRenderer.invoke("adb-path"),
+  isAdbDownloaded: () => ipcRenderer.invoke("adb-downloaded"),
+  installAdb: () => ipcRenderer.invoke("adb-install-adb"),
+  onInstallProgress: (listener) => ipcRenderer.on("adb-install-progress", (_event, data) => listener(data)),
+  setAdbPath: (value) => ipcRenderer.invoke("set-adb-path", value),
+  browseAdb: () => ipcRenderer.invoke("browse-adb"),
+  devices: () => ipcRenderer.invoke("adb-devices"),
+  deviceInfo: (serial) => ipcRenderer.invoke("adb-device-info", serial),
+  apps: (serial) => ipcRenderer.invoke("adb-apps", serial),
+  scan: (serial) => ipcRenderer.invoke("adb-scan", serial),
+  appInfo: (serial, pkg) => ipcRenderer.invoke("adb-app-info", { serial, package: pkg }),
+  install: (serial) => ipcRenderer.invoke("adb-install", { serial }),
+  uninstall: (serial, pkg) => ipcRenderer.invoke("adb-uninstall", { serial, package: pkg }),
+});

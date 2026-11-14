@@ -8,3 +8,6 @@ update-config.json
 dasu.response
 *.log
 .taste-skill/
+platform-tools/
+aapt2/
+app-info/

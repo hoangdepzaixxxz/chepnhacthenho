@@ -4,7 +4,11 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const { spawn, spawnSync } = require("child_process");
+const https = require("https");
+const { pipeline } = require("stream");
 const { searchYouTube } = require("./lib/youtube-search");
+const adb = require("./lib/adb");
+const apkInfo = require("./lib/apk-info");
 
 const APP_DIR = app.isPackaged ? path.dirname(process.execPath) : __dirname;
 // Link lists and the downloaded helper tools live outside the install folder:
@@ -15,6 +19,15 @@ const DATA_DIR = app.isPackaged
 const RENDERER_DIR = app.isPackaged ? path.join(process.resourcesPath, "renderer") : path.join(__dirname, "renderer");
 const OUTPUT_ROOT = path.join(process.env.USERPROFILE || os.homedir(), "Documents", "chepnhacthenho");
 const DOWNLOAD_SETTINGS = path.join(app.getPath("userData"), "download-settings.json");
+const ADB_SETTINGS = path.join(app.getPath("userData"), "adb-settings.json");
+// adb the app downloads on demand (so the installer need not bundle it).
+const PLATFORM_TOOLS_DIR = path.join(DATA_DIR, "platform-tools");
+const DOWNLOADED_ADB = path.join(PLATFORM_TOOLS_DIR, "adb.exe");
+const PLATFORM_TOOLS_URL = "https://dl.google.com/android/repository/platform-tools-latest-windows.zip";
+// aapt2 reads an app's real name and icon out of its APK; adb cannot give either.
+const AAPT2_DIR = path.join(DATA_DIR, "aapt2");
+const AAPT2_EXE = path.join(AAPT2_DIR, "aapt2.exe");
+const AAPT2_URL = "https://dl.google.com/dl/android/maven2/com/android/tools/build/aapt2/8.9.1-12782657/aapt2-8.9.1-12782657-windows.jar";
 const UPDATE_CONFIG = path.join(APP_DIR, "update-config.json");
 const DEFAULT_UPDATE_URL = "https://github.com/hoangdepzaixxxz/chepnhacthenho/releases/latest/download";
 let mainWindow;
@@ -180,7 +193,7 @@ function createWindow() {
     height: 760,
     minWidth: 920,
     minHeight: 620,
-    backgroundColor: "#000000",
+    backgroundColor: "#f9fafb",
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -214,14 +227,15 @@ function parseRunnerOutput(stream) {
   });
 }
 
-function startDownload({ mode, outputDirectory } = {}) {
+function startDownload({ mode, quality = "hd", outputDirectory } = {}) {
   if (downloader) throw new Error("Đang có một lượt tải chạy.");
   if (!["video", "audio"].includes(mode)) throw new Error("Chế độ tải không hợp lệ.");
+  if (!["fast", "hd"].includes(quality)) throw new Error("Chất lượng video không hợp lệ.");
   // When no folder was chosen in the interface, this creates and uses the
   // default Documents\chepnhacthenho directory.
   const destination = resolveOutputDirectory(outputDirectory || currentOutputDirectory());
   const environment = { ...process.env, ELECTRON_RUN_AS_NODE: "1", DOWNLOADER_DATA_DIR: DATA_DIR };
-  const runner = spawn(process.execPath, [path.join(__dirname, "1.js"), "--desktop", "--mode", mode, "--output-dir", destination], {
+  const runner = spawn(process.execPath, [path.join(__dirname, "1.js"), "--desktop", "--mode", mode, "--quality", quality, "--output-dir", destination], {
     windowsHide: true,
     env: environment,
     stdio: ["pipe", "pipe", "pipe"],
@@ -252,6 +266,171 @@ function stopDownload() {
   runner.killTimer = setTimeout(() => {
     if (downloader === runner) killDownloader();
   }, 8000);
+}
+
+function getAdbPath() {
+  try { return String(JSON.parse(fs.readFileSync(ADB_SETTINGS, "utf8")).adbPath || ""); } catch { return ""; }
+}
+
+function saveAdbPath(value) {
+  const adbPath = String(value || "").trim();
+  if (adbPath && !fs.statSync(adbPath, { throwIfNoEntry: false })?.isFile()) throw new Error("Không tìm thấy file adb ở đường dẫn này.");
+  fs.mkdirSync(path.dirname(ADB_SETTINGS), { recursive: true });
+  fs.writeFileSync(ADB_SETTINGS, `${JSON.stringify({ adbPath }, null, 2)}\n`, "utf8");
+  return adbPath;
+}
+
+// Configured adb.exe first, then the copy the app downloaded, then "adb" on PATH.
+function resolveAdb() {
+  const configured = getAdbPath();
+  if (configured) return configured;
+  if (fs.existsSync(DOWNLOADED_ADB)) return DOWNLOADED_ADB;
+  return "adb";
+}
+
+function download(url, destination, onProgress, redirects = 0) {
+  return new Promise((resolve, reject) => {
+    const request = https.get(url, (response) => {
+      const { statusCode, headers } = response;
+      if (statusCode >= 300 && statusCode < 400 && headers.location) {
+        response.resume();
+        if (redirects > 5) { reject(new Error("Quá nhiều chuyển hướng khi tải adb.")); return; }
+        download(new URL(headers.location, url).href, destination, onProgress, redirects + 1).then(resolve, reject);
+        return;
+      }
+      if (statusCode !== 200) { response.resume(); reject(new Error(`Tải adb thất bại (HTTP ${statusCode}).`)); return; }
+      const total = Number(headers["content-length"]) || 0;
+      let received = 0;
+      response.on("data", (chunk) => { received += chunk.length; if (total) onProgress(Math.round((received / total) * 100)); });
+      // pipeline reports a dropped connection or a full disk instead of hanging or crashing.
+      pipeline(response, fs.createWriteStream(destination), (error) => {
+        if (!error) { resolve(); return; }
+        fs.rmSync(destination, { force: true });
+        reject(error);
+      });
+    });
+    request.on("error", reject);
+    request.setTimeout(30000, () => request.destroy(new Error("Máy chủ tải không phản hồi.")));
+  });
+}
+
+// Downloads a zip of Google tooling into DATA_DIR and unpacks it; `verify` is the
+// executable that must exist afterwards, and is what the caller gets back.
+async function installTool(options) {
+  const { label } = options;
+  try {
+    const tool = await fetchTool(options);
+    send("adb-install-progress", { state: "done", label });
+    return tool;
+  } catch (error) {
+    // Without this the status line keeps saying "Đang tải… 40%" after a failure.
+    send("adb-install-progress", { state: "error", label, message: error.message });
+    throw error;
+  }
+}
+
+async function fetchTool({ url, zipName, unpackTo, clean, verify, label }) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  const zip = path.join(DATA_DIR, zipName);
+  send("adb-install-progress", { state: "downloading", percent: 0, label });
+  await download(url, zip, (percent) => send("adb-install-progress", { state: "downloading", percent, label }));
+  send("adb-install-progress", { state: "extracting", label });
+  try {
+    // A running adb daemon keeps adb.exe locked, so the old folder could not be replaced.
+    if (verify === DOWNLOADED_ADB && fs.existsSync(verify)) await adb.runAdb(verify, ["kill-server"]).catch(() => {});
+    if (clean) fs.rmSync(clean, { recursive: true, force: true });
+    // Not spawnSync: unpacking takes seconds and would freeze the whole window.
+    await adb.run("powershell.exe",
+      ["-NoProfile", "-NonInteractive", "-Command",
+        `Expand-Archive -LiteralPath ${adb.psQuote(zip)} -DestinationPath ${adb.psQuote(unpackTo)} -Force`],
+      { timeout: 120000, notFound: "Không chạy được PowerShell." });
+  } catch {
+    throw new Error(`Giải nén ${label} thất bại.`);
+  } finally {
+    fs.rmSync(zip, { force: true });
+  }
+  if (!fs.existsSync(verify)) throw new Error(`Giải nén ${label} thất bại.`);
+  return verify;
+}
+
+const once = (fn) => {
+  let pending = null;
+  return () => {
+    if (!pending) {
+      pending = fn();
+      const clear = () => { pending = null; };
+      pending.then(clear, clear); // .finally would re-raise a failed download as an unhandled rejection
+    }
+    return pending;
+  };
+};
+
+const installAdb = once(() => installTool({
+  url: PLATFORM_TOOLS_URL, zipName: "platform-tools.zip", unpackTo: DATA_DIR,
+  clean: PLATFORM_TOOLS_DIR, verify: DOWNLOADED_ADB, label: "adb",
+}));
+
+const installAapt2 = once(() => installTool({
+  url: AAPT2_URL, zipName: "aapt2.zip", unpackTo: AAPT2_DIR,
+  clean: AAPT2_DIR, verify: AAPT2_EXE, label: "aapt2",
+}));
+
+// aapt2 is only needed to read an app's name and icon, so it downloads on first use.
+const ensureAapt2 = () => (fs.existsSync(AAPT2_EXE) ? Promise.resolve(AAPT2_EXE) : installAapt2());
+
+// Reading a name and icon costs one APK pull, so the result is kept on disk:
+// the phone is only read once per app, however often the screen is reopened.
+const APP_INFO_DIR = path.join(DATA_DIR, "app-info");
+const appInfoCache = new Map();
+
+// The cache holds the promise, so a click on a row that is already being read
+// joins that read instead of racing it over the same temp file.
+function readAppInfo(serial, pkg) {
+  const key = `${serial}|${pkg}`;
+  if (!appInfoCache.has(key)) {
+    const reading = loadAppInfo(serial, pkg);
+    appInfoCache.set(key, reading);
+    reading.catch(() => appInfoCache.delete(key)); // a failed read may be retried
+  }
+  return appInfoCache.get(key);
+}
+
+async function loadAppInfo(serial, pkg) {
+  adb.assertSerial(serial);
+  adb.assertPackage(pkg);
+  const file = path.join(APP_INFO_DIR, `${pkg}.json`);
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch { /* not read from this phone yet */ }
+  const info = await apkInfo.readApkInfo({
+    adb: resolveAdb(), aapt2: await ensureAapt2(), serial, pkg,
+    workDir: path.join(app.getPath("temp"), "automusic-apk"),
+  });
+  try {
+    fs.mkdirSync(APP_INFO_DIR, { recursive: true });
+    fs.writeFileSync(file, JSON.stringify(info), "utf8");
+  } catch { /* a read-only data folder only costs us the cache */ }
+  return info;
+}
+
+async function browseAdb() {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: "Chọn file adb.exe",
+    properties: ["openFile"],
+    filters: [{ name: "adb", extensions: ["exe"] }, { name: "Tất cả", extensions: ["*"] }],
+  });
+  return result.canceled || !result.filePaths[0] ? "" : result.filePaths[0];
+}
+
+async function installApk(serial) {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: "Chọn file APK để cài",
+    properties: ["openFile"],
+    filters: [{ name: "APK", extensions: ["apk"] }],
+  });
+  if (result.canceled || !result.filePaths[0]) return { canceled: true };
+  await adb.installApk(resolveAdb(), serial, result.filePaths[0]);
+  return { installed: true, apk: path.basename(result.filePaths[0]) };
 }
 
 ipcMain.handle("app-state", () => ({
@@ -287,11 +466,28 @@ ipcMain.handle("show-update-help", () => dialog.showMessageBox(mainWindow, {
   title: "Thiết lập cập nhật",
   message: "Tạo file update-config.json cạnh file EXE, ví dụ:\n{\n  \"url\": \"https://github.com/TEN-TAI-KHOAN/TEN-REPO/releases/latest/download\"\n}\n\nMỗi bản mới phải có latest.yml và file Setup.exe do electron-builder phát hành.",
 }));
+ipcMain.handle("adb-path", getAdbPath);
+ipcMain.handle("adb-downloaded", () => fs.existsSync(DOWNLOADED_ADB));
+ipcMain.handle("adb-install-adb", installAdb);
+ipcMain.handle("set-adb-path", (_event, value) => saveAdbPath(value));
+ipcMain.handle("browse-adb", browseAdb);
+// Returns a result object (never rejects) so the 2.5s poll can't flood the
+// terminal with "Error occurred in handler" when adb is missing.
+ipcMain.handle("adb-devices", async () => {
+  try { return { devices: await adb.listDevices(resolveAdb()) }; }
+  catch (error) { return { error: error.message }; }
+});
+ipcMain.handle("adb-device-info", (_event, serial) => adb.deviceInfo(resolveAdb(), serial));
+ipcMain.handle("adb-apps", (_event, serial) => adb.listThirdPartyApps(resolveAdb(), serial));
+ipcMain.handle("adb-scan", (_event, serial) => adb.scanApps(resolveAdb(), serial));
+ipcMain.handle("adb-app-info", (_event, { serial, package: pkg } = {}) => readAppInfo(serial, pkg));
+ipcMain.handle("adb-install", (_event, { serial } = {}) => installApk(serial));
+ipcMain.handle("adb-uninstall", (_event, { serial, package: pkg } = {}) => adb.uninstallApp(resolveAdb(), serial, pkg));
 ipcMain.handle("set-theme", (_event, theme) => {
   if (["dark", "light", "system"].includes(theme)) {
     nativeTheme.themeSource = theme;
     // Matches the page ground, so resizing never shows a band of the other theme.
-    mainWindow?.setBackgroundColor(theme === "light" ? "#f9fafb" : "#000000");
+    mainWindow?.setBackgroundColor(theme === "dark" ? "#000000" : "#f9fafb");
   }
 });
 

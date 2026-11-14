@@ -1,65 +1,80 @@
-/* AutoMusic Pro — app screen, "True-black flat" style (tasteskill, seed 1369562544).
-   The move: elevation by lightness alone (ground, surface, raised), no borders or shadows on
-   cards, colour only on data (download progress), the primary action made primary by inversion.
-   The face: a warm music orange as the one data hue, and the song strip (one cell per song,
-   filling as it downloads) as this product's own element. */
+/* AutoMusic Pro — app screen, "Accent ladder" style (tasteskill, seed 288462436).
+   The move: the full hue only on small marks (the download bar, the active tab indicator,
+   one filled control); its pale tints carry every area (progress tracks, badges, the
+   selected row). Areas never take the hue at full strength.
+   The face: the dealt raspberry, kept rather than the product's old orange, because an
+   orange ladder's pale tints measure as the banned cream-with-terracotta palette (the sheet
+   sets the same precedent: it swaps the studied screens' violet for this raspberry). Its own
+   element is the song strip, one cell per song, filling as it downloads.
+   Shell: no sidebar (the study's archetype for a product with few destinations) — this app
+   has two, so a top bar over one centred column, as the app already had. */
 
 /* ---------- tokens ---------- */
 :root,
+:root[data-theme="light"] {
+  --ground: #f9fafb;
+  --surface: #ffffff;
+  --raised: #f3f4f6;
+  --hover: #f3f4f6;
+  --rule: #eef0f2;
+  --border: #e5e7eb;
+  --control: #d1d5db;
+  --text: #111827;
+  --muted: #5f6672;
+  --faint: #6b7280;
+  --primary: #1d1f20;
+  --primary-ink: #ffffff;
+  --accent: #b8336a;
+  --accent-soft: #fdf2f7;
+  --accent-track: #f8dbe8;
+  --accent-ink: #6b1d3e;
+  --track: #eceef1;
+  --positive: #247b50;
+  --negative: #c4242a;
+  --pill-positive-bg: #dcfae5; --pill-positive-ink: #04250e;
+  --pill-negative-bg: #ffedea; --pill-negative-ink: #831c1e;
+  --pill-accent-bg: #fdf2f7;   --pill-accent-ink: #6b1d3e;
+  --pill-neutral-bg: #f3f4f6;  --pill-neutral-ink: #374151;
+  --toast: #1d1f20;
+  --popover-line: #e5e7eb;
+  --mark-filter: invert(1);
+  color-scheme: light;
+}
 :root[data-theme="dark"] {
   --ground: #000000;
   --surface: #111111;
-  --raised: #2a2a2a;
+  --raised: #222222;
   --hover: #1c1c1c;
-  --rule: #1f1f1f;
+  --rule: #1a1a1a;
+  --border: #2a2a2a;
   --control: #444444;
   --text: #ffffff;
   --muted: #b4b4b4;
   --faint: #949494;
   --primary: #ffffff;
   --primary-ink: #000000;
-  --accent: #ff8a3d;
-  --track: #2a2a2a;
+  --accent: #e8699b;
+  --accent-soft: #2a1220;
+  --accent-track: #3d1a2b;
+  --accent-ink: #f3a7c6;
+  --track: #222222;
   --positive: #3fc07a;
   --negative: #e5566f;
   --pill-positive-bg: #172a1d; --pill-positive-ink: #3fc07a;
   --pill-negative-bg: #2c1a20; --pill-negative-ink: #e5566f;
-  --pill-accent-bg: #2e1d12;   --pill-accent-ink: #ff9d5c;
+  --pill-accent-bg: #2a1220;   --pill-accent-ink: #f3a7c6;
   --pill-neutral-bg: #222222;  --pill-neutral-ink: #d6d6d6;
   --toast: #222222;
+  --popover-line: #2a2a2a;
   --mark-filter: none;
   color-scheme: dark;
 }
-:root[data-theme="light"] {
-  --ground: #f9fafb;
-  --surface: #ffffff;
-  --raised: #f1f2f4;
-  --hover: #f4f5f6;
-  --rule: #eef0f2;
-  --control: #d1d5db;
-  --text: #111111;
-  --muted: #5f6368;
-  --faint: #6b6b6b;
-  --primary: #1d1f20;
-  --primary-ink: #ffffff;
-  --accent: #e8681f;
-  --track: #eceef1;
-  --positive: #247b50;
-  --negative: #c4242a;
-  --pill-positive-bg: #dcfae5; --pill-positive-ink: #04250e;
-  --pill-negative-bg: #ffedea; --pill-negative-ink: #831c1e;
-  --pill-accent-bg: #ffeee3;   --pill-accent-ink: #8a3207;
-  --pill-neutral-bg: #eeeeee;  --pill-neutral-ink: #3d3d3d;
-  --toast: #1d1f20;
-  --mark-filter: invert(1);
-  color-scheme: light;
-}
 :root {
-  --font: "Inter", system-ui, "Segoe UI", sans-serif;
-  --fs-title: 20px; --fs-section: 16px; --fs-figure: 28px; --fs-body: 14px; --fs-small: 12px;
-  --radius-card: 20px; --radius-inner: 12px; --radius-thumb: 4px;
-  --gap: 14px; --pad: 22px;
-  --control-height: 36px; --bar-height: 56px;
+  --font: "DM Sans", Inter, system-ui, "Segoe UI", sans-serif;
+  --fs-title: 24px; --fs-section: 18px; --fs-figure: 28px; --fs-body: 14px; --fs-small: 12px;
+  --radius-card: 8px; --radius-inner: 6px; --radius-thumb: 4px;
+  --gap: 24px; --pad: 24px;
+  --control-height: 32px; --bar-height: 64px;
   --column: 1180px;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -85,7 +100,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round
 :focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
 .num { font-variant-numeric: tabular-nums; }
 /* Thin scrollbars in the theme's own greys instead of the system's arrowed ones */
-html, .results, textarea { scrollbar-width: thin; scrollbar-color: var(--control) transparent; }
+html, .results, textarea, .playlist-tracks { scrollbar-width: thin; scrollbar-color: var(--control) transparent; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 [hidden] { display: none !important; }
 
@@ -105,16 +120,18 @@ html, .results, textarea { scrollbar-width: thin; scrollbar-color: var(--control
 .topbar.scrolled { border-bottom-color: var(--rule); }
 .topbar-inner { display: flex; align-items: center; gap: 20px; height: var(--bar-height); }
 
-.brand { display: flex; align-items: center; gap: 10px; flex: none; }
-.brand-mark { width: 28px; height: 28px; object-fit: contain; filter: var(--mark-filter); }
-.brand-name { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
-.brand-scope { color: var(--faint); }
+.brand { display: flex; align-items: center; gap: 12px; flex: none; }
+.brand-mark { width: 40px; height: 40px; object-fit: contain; filter: var(--mark-filter); }
+.brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+.brand-name { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+.brand-scope { font-size: 12px; color: var(--faint); }
 
 .search {
   position: relative;
   display: flex;
   align-items: center;
   flex: 1 1 320px;
+  min-width: 180px;
   max-width: 440px;
   height: var(--control-height);
   border-radius: 999px;
@@ -148,30 +165,109 @@ html, .results, textarea { scrollbar-width: thin; scrollbar-color: var(--control
 .search-submit:active { transform: scale(0.97); }
 .search-submit:disabled { color: var(--faint); }
 
-/* Background music: what is playing, and the three controls */
-.player { display: flex; align-items: center; gap: 10px; min-width: 0; margin-left: auto; }
-.player-cover { width: 32px; height: 32px; flex: none; border-radius: var(--radius-thumb); object-fit: cover; background: var(--surface); }
-.player-cover-blank { display: grid; place-items: center; color: var(--faint); }
-.player-meta {
-  display: grid;
+/* Background music: what is playing (opens the track list) and the three controls */
+.player { position: relative; display: flex; flex: none; align-items: center; gap: 8px; margin-left: auto; }
+.player-now {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   min-width: 0;
-  width: 190px;
-  padding: 0;
+  padding: 4px 10px 4px 4px;
   border: 0;
+  border-radius: var(--radius-inner);
   background: none;
   text-align: left;
+  transition: background-color 150ms ease;
 }
+.player-now:hover, .player-now[aria-expanded="true"] { background: var(--surface); }
+.player-cover { width: 40px; height: 40px; flex: none; border-radius: 6px; object-fit: cover; background: var(--surface); }
+.player-cover-blank { display: grid; place-items: center; color: var(--faint); }
+.player-now:hover .player-cover-blank, .player-now[aria-expanded="true"] .player-cover-blank { background: var(--raised); }
+.player-meta { display: grid; min-width: 0; width: 210px; }
 .player-title, .player-artist { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.player-title { font-size: 13px; line-height: 18px; font-weight: 500; }
+.player-title { font-size: var(--fs-body); line-height: 20px; font-weight: 500; }
 .player-artist { font-size: var(--fs-small); line-height: 16px; color: var(--faint); }
-.player-meta:hover .player-title { text-decoration: underline; text-underline-offset: 3px; }
+.player-chevron { flex: none; color: var(--faint); transition: transform 150ms var(--ease-out); }
+.player-now[aria-expanded="true"] .player-chevron { transform: rotate(180deg); }
 .player-controls { display: flex; align-items: center; gap: 2px; }
-.player-play { background: var(--surface); }
+.player-play { width: 40px; height: 40px; background: var(--surface); }
 .player-play .icon-pause { display: none; }
 .player-play[data-state="playing"] .icon-play { display: none; }
 .player-play[data-state="playing"] .icon-pause { display: block; }
 .player-play[data-state="loading"] { color: var(--faint); }
 .player-play[data-state="error"] { color: var(--negative); }
+
+/* The track list, dropped under the player: a floating menu, lifted over the page. */
+.playlist {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  width: min(380px, 100vw - 32px);
+  max-height: min(640px, 100vh - 96px);
+  border: 1px solid var(--popover-line);
+  border-radius: var(--radius-inner);
+  background: var(--surface);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28); /* taste-skill-ignore: floating overlay */
+}
+.playlist-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 14px 16px 10px; }
+.playlist-title { font-weight: 600; }
+.playlist-tracks { flex: 1 1 auto; overflow-y: auto; padding: 0 6px; }
+.playlist-foot { padding: 10px 16px 14px; border-top: 1px solid var(--rule); font-size: var(--fs-small); }
+.playlist-foot .link-btn { color: var(--muted); }
+.playlist-foot .link-btn:hover { color: var(--text); }
+
+.track {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 6px 10px 6px 6px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  text-align: left;
+  transition: background-color 120ms ease;
+}
+.track:hover, .track:focus-visible { background: var(--hover); }
+.track[aria-current="true"] { background: var(--raised); }
+.track-art { position: relative; width: 52px; height: 52px; overflow: hidden; border-radius: 6px; background: var(--raised); }
+.track-art img, .track-blank { display: block; width: 100%; height: 100%; object-fit: cover; }
+.track-copy { display: grid; min-width: 0; }
+.track-title, .track-artist { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.track-title { font-weight: 500; }
+.track-artist { font-size: var(--fs-small); line-height: 16px; color: var(--faint); }
+.track-length { font-size: var(--fs-small); color: var(--faint); }
+
+/* On the cover: play on hover, moving bars on the track that is playing, pause on hover
+   over the playing track. The scrim is dark in both themes. */
+.track-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.5);
+  color: #ffffff;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.track:hover .track-overlay, .track:focus-visible .track-overlay, .track[aria-current="true"] .track-overlay { opacity: 1; }
+.track-overlay > * { display: none; }
+.track-overlay svg { fill: currentColor; stroke-width: 2.4; }
+.track-overlay .icon-play { display: block; }
+.playlist:is([data-state="playing"], [data-state="loading"]) .track[aria-current="true"] .icon-play { display: none; }
+.playlist:is([data-state="playing"], [data-state="loading"]) .track[aria-current="true"] .eq { display: flex; }
+.playlist[data-state="playing"] .track[aria-current="true"]:hover .eq { display: none; }
+.playlist[data-state="playing"] .track[aria-current="true"]:hover .icon-pause { display: block; }
+.eq { align-items: flex-end; gap: 3px; height: 16px; }
+.eq i { width: 3px; height: 100%; border-radius: 1px; background: var(--accent); transform-origin: bottom; animation: eq 800ms ease-in-out infinite alternate; }
+.eq i:nth-child(2) { animation-delay: -270ms; }
+.eq i:nth-child(3) { animation-delay: -530ms; }
+.playlist[data-state="loading"] .eq i { animation: none; transform: scaleY(0.35); }
+@keyframes eq { from { transform: scaleY(0.3); } to { transform: scaleY(1); } }
 
 .topbar-tools { display: flex; align-items: center; gap: 2px; flex: none; }
 .icon-sun { display: none; }
@@ -251,14 +347,20 @@ html, .results, textarea { scrollbar-width: thin; scrollbar-color: var(--control
 .tab[aria-selected="true"] { color: var(--text); }
 .tab[aria-selected="true"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--text); }
 .tab-count { min-width: 22px; padding: 0 7px; border-radius: 999px; background: var(--surface); color: var(--muted); font-size: var(--fs-small); line-height: 20px; text-align: center; }
-.tab[aria-selected="true"] .tab-count { background: var(--raised); color: var(--text); }
+.tab[aria-selected="true"] .tab-count { background: var(--accent-soft); color: var(--accent-ink); }
 .tabs-note { margin-left: auto; color: var(--faint); font-size: var(--fs-small); }
+.quality { display: inline-flex; padding: 2px; border-radius: 999px; background: var(--surface); }
+.quality-option { position: relative; display: inline-flex; align-items: center; height: 28px; padding: 0 12px; border-radius: 999px; color: var(--muted); font-size: 13px; font-weight: 500; cursor: pointer; transition: background-color 150ms ease, color 150ms ease; }
+.quality-option input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.quality-option:hover { color: var(--text); }
+.quality-option:has(input:checked) { background: var(--raised); color: var(--text); }
+.quality-option:has(input:focus-visible) { outline: 2px solid var(--text); outline-offset: 1px; }
 
 /* ---------- panels ---------- */
 /* 12 columns with one 14px gutter: progress 7 + links 5 = 12, so both blocks land on the column's
    edges. The row stretches: the links textarea takes up the extra height, never a blank band. */
 .grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--gap); }
-.progress-panel { grid-column: span 7; }
+.progress-panel { grid-column: span 7; display: flex; flex-direction: column; }
 .links-panel { grid-column: span 5; display: flex; flex-direction: column; }
 .panel { min-width: 0; padding: var(--pad); border-radius: var(--radius-card); background: var(--surface); }
 .panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
@@ -275,13 +377,14 @@ html, .results, textarea { scrollbar-width: thin; scrollbar-color: var(--control
 /* The song strip: one cell per song, its fill the song's progress. */
 .strip { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 3px; height: 12px; margin-bottom: 18px; }
 .strip.dense { gap: 1px; }
-.strip:empty { display: block; border-radius: 3px; background: var(--track); }
+.strip:empty { display: block; border-radius: 3px; background: var(--accent-track); }
 .cell { position: relative; overflow: hidden; border-radius: 3px; background: var(--track); }
 .cell i { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--accent); transition: width 300ms var(--ease-out); }
 .cell.done i { width: 100%; }
 .cell.failed { background: var(--negative); }
 
-.empty { display: grid; gap: 6px; padding: 20px; border: 1px dashed var(--control); border-radius: var(--radius-inner); color: var(--muted); }
+.empty { display: grid; align-content: center; gap: 6px; padding: 20px; border: 1px dashed var(--control); border-radius: var(--radius-inner); color: var(--muted); }
+.empty:not([hidden]) { flex: 1; }
 .empty-title { color: var(--text); font-size: 15px; font-weight: 500; }
 .empty-actions { display: flex; gap: 8px; margin-top: 10px; }
 
@@ -295,7 +398,7 @@ html, .results, textarea { scrollbar-width: thin; scrollbar-color: var(--control
 .job-meta { display: flex; align-items: center; gap: 10px; justify-self: end; }
 .job-figure { min-width: 48px; text-align: right; color: var(--muted); font-size: 13px; }
 .job-speed { min-width: 72px; text-align: right; color: var(--faint); font-size: var(--fs-small); }
-.job-bar { grid-column: 1 / -1; height: 3px; overflow: hidden; border-radius: 2px; background: var(--track); }
+.job-bar { grid-column: 1 / -1; height: 3px; overflow: hidden; border-radius: 2px; background: var(--accent-track); }
 .job-bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width 300ms var(--ease-out); }
 .job:not(.downloading):not(.merging):not(.starting) .job-bar { display: none; }
 .job-error { grid-column: 1 / -1; color: var(--pill-negative-ink); font-size: var(--fs-small); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -381,8 +484,11 @@ html, .results, textarea { scrollbar-width: thin; scrollbar-color: var(--control
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ---------- narrower windows ---------- */
-@media (max-width: 1060px) {
+/* The bigger player keeps its room first: the brand line goes, then the title narrows. */
+@media (max-width: 980px) {
   .brand-scope { display: none; }
+}
+@media (max-width: 1060px) {
   .player-meta { width: 150px; }
 }
 @media (max-width: 900px) {
@@ -395,12 +501,13 @@ html, .results, textarea { scrollbar-width: thin; scrollbar-color: var(--control
 @media (max-width: 600px) {
   .column { width: calc(100% - 32px); }
   .topbar-inner { column-gap: 4px; }
-  .brand-name { display: none; }
+  .brand-text { display: none; }
   .sub-dest { flex-basis: 100%; }
   .sub-dest::before { display: none; }
   .search-toolbar { flex-wrap: wrap; }
 
-  .player-meta, .player-cover { display: none; }
+  .player-meta, .player-chevron { display: none; }
+  .player-now { padding-right: 4px; }
   .title-row { flex-direction: column; align-items: stretch; }
   .title-actions .btn { flex: 1; }
   .panel { padding: 18px; }
@@ -419,3 +526,40 @@ html, .results, textarea { scrollbar-width: thin; scrollbar-color: var(--control
 /* The SoundCloud widget plays the background music. It keeps a real size so its own
    layout works, and stays invisible and out of the way. */
 .music-frame { position: fixed; left: 0; bottom: 0; z-index: -1; width: 400px; height: 166px; border: 0; visibility: hidden; pointer-events: none; }
+
+/* --- Android device screen --- */
+.view-switch { display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--surface); }
+.view-tab { height: 30px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font-size: 13px; font-weight: 500; font-family: inherit; cursor: pointer; transition: background-color 150ms ease, color 150ms ease; }
+.view-tab:hover { color: var(--text); }
+.view-tab[aria-selected="true"] { background: var(--accent-soft); color: var(--accent-ink); font-weight: 600; }
+
+.btn.small { height: 28px; padding: 0 12px; font-size: 13px; }
+
+.adb-path-row { display: flex; gap: 8px; }
+.adb-path-row input { flex: 1; min-width: 0; height: var(--control-height); padding: 0 12px; border: 1px solid var(--control); border-radius: var(--radius-inner); background: var(--ground); color: var(--text); font: inherit; font-size: var(--fs-body); }
+.adb-path-row input:focus { outline: none; box-shadow: inset 0 0 0 1px var(--control); }
+
+.adb-col { grid-column: span 6; }
+
+.adb-list { list-style: none; display: flex; flex-direction: column; gap: 2px; max-height: 420px; overflow: auto; }
+.adb-item { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--rule); }
+.adb-item:last-child { border-bottom: 0; }
+.adb-device { flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 10px; border: 1px solid transparent; border-radius: var(--radius-inner); background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.adb-device:hover:not(:disabled) { background: var(--hover); }
+.adb-device:disabled { cursor: default; color: var(--faint); }
+.adb-device[aria-pressed="true"] { border-color: var(--control); background: var(--hover); }
+.adb-device-name { font-size: var(--fs-body); font-weight: 500; }
+.adb-pkg { flex: 1; min-width: 0; font-size: 13px; word-break: break-all; }
+.adb-scan-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.adb-badge { flex: none; padding: 2px 9px; border-radius: 999px; font-size: var(--fs-small); font-weight: 600; }
+.adb-badge-high { background: var(--pill-negative-bg); color: var(--pill-negative-ink); }
+.adb-badge-medium { background: var(--pill-accent-bg); color: var(--pill-accent-ink); }
+
+/* app rows: real icon + name, loaded on demand from the APK */
+.adb-icon { width: 32px; height: 32px; flex: none; border-radius: 8px; object-fit: contain; }
+.adb-icon-blank { background: var(--raised); }
+.adb-appname { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 4px 6px; border: 0; border-radius: var(--radius-inner); background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.adb-appname:hover:not(:disabled) { background: var(--hover); }
+.adb-appname:disabled { cursor: default; }
+.adb-appname .adb-pkg { font-size: var(--fs-body); }
+.adb-icon-letter { display: flex; align-items: center; justify-content: center; color: #fff; font-size: 15px; font-weight: 600; }
