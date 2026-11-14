@@ -57,6 +57,7 @@
   let failuresInARow = 0;
   let timeout = null;
   let loadToken = 0; // only the most recent load may start playback
+  let held = false; // a search-result preview is playing instead
 
   const LABELS = {
     loading: "Đang tải nhạc nền · bấm để tắt",
@@ -224,7 +225,7 @@
         skipBroken();
         return;
       }
-      if (wanted) {
+      if (wanted && !held) {
         watchLoading();
         widget.play();
       } else {
@@ -242,7 +243,7 @@
     widget.bind(events.PLAY, () => {
       // A late PLAY from the previous track while the next one loads says nothing.
       if (!ready) return;
-      if (!wanted) {
+      if (!wanted || held) {
         widget.pause();
         return;
       }
@@ -359,6 +360,23 @@
   }
 
   /* ---------- events ---------- */
+  // A song previewed from the search results takes over the speakers: the music waits
+  // and comes back when the preview ends, unless it was switched off anyway.
+  document.addEventListener("preview", (event) => {
+    held = Boolean(event.detail);
+    if (!wanted || !widget) return;
+    if (held) {
+      clearTimeout(timeout);
+      if (ready) widget.pause();
+      render("paused");
+    } else if (ready) {
+      render("loading");
+      watchLoading();
+      widget.play();
+    } else {
+      go(index);
+    }
+  });
   button.addEventListener("click", toggle);
   $("music-next").addEventListener("click", () => { failuresInARow = 0; go(index + 1); });
   $("music-prev").addEventListener("click", () => { failuresInARow = 0; go(index - 1); });

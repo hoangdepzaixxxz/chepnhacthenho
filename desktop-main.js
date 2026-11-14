@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, shell, nativeTheme } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, shell, nativeTheme, session } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const fs = require("fs");
 const os = require("os");
@@ -492,6 +492,12 @@ ipcMain.handle("set-theme", (_event, theme) => {
 });
 
 app.whenReady().then(() => {
+  // Previewing a search result plays it in a YouTube embed, and YouTube refuses an embed
+  // that sends no Referer, and one that claims to be youtube.com (errors 153, 152). A
+  // file:// page sends none, so supply a neutral one on a reserved domain.
+  session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ["https://www.youtube.com/embed/*"] }, (details, callback) => {
+    callback({ requestHeaders: { ...details.requestHeaders, Referer: "https://automusicpro.invalid/" } });
+  });
   ensureUpdateConfig();
   configureUpdaterEvents();
   createWindow();

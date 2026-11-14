@@ -108,6 +108,14 @@ function renderCounts() {
   if (!jobs.length) renderJobs();
 }
 
+// A finished run keeps its rows on screen until the list is edited or the tab changes;
+// then the queue takes over again, so the next round is visibly ready to start.
+function clearFinishedRun() {
+  if (running || !jobs.length) return;
+  jobs = [];
+  setText($("progress-heading"), "Chưa bắt đầu");
+}
+
 // Start needs at least one link in the open tab and no run in progress. Recomputed whenever
 // either changes, including while the finished run's rows are still on screen.
 function renderStartButton() {
@@ -201,6 +209,7 @@ function switchMode(nextMode) {
   setText($("format-note"), formatNote());
   setText($("links-title"), `Link ${MODE_NAMES[mode]} chờ tải`);
   renderAddButton();
+  clearFinishedRun();
   renderCounts();
 }
 
@@ -230,8 +239,27 @@ function jobLabel(job) {
   return JOB_LABELS[job.status] || "Chờ";
 }
 
+// The video id in a YouTube link (watch, youtu.be, shorts), or "" for anything else.
+function videoId(url) {
+  try {
+    const link = new URL(url);
+    const id = link.hostname === "youtu.be"
+      ? link.pathname.slice(1)
+      : link.searchParams.get("v") || (link.pathname.match(/^\/(?:shorts|embed|live)\/([\w-]+)/) || [])[1] || "";
+    return /^[\w-]{6,}$/.test(id) ? id : "";
+  } catch {
+    return "";
+  }
+}
+
 function createJobRow() {
   const item = document.createElement("li");
+  // Each song shows its own cover, so a row is recognised before its title has loaded.
+  const thumb = document.createElement("img");
+  thumb.className = "job-thumb";
+  thumb.alt = "";
+  thumb.loading = "lazy";
+  thumb.addEventListener("error", () => thumb.removeAttribute("src"));
   const title = document.createElement("span");
   title.className = "job-title";
   const meta = document.createElement("span");
@@ -249,11 +277,17 @@ function createJobRow() {
   bar.append(fill);
   const error = document.createElement("span");
   error.className = "job-error";
-  item.append(title, meta, bar, error);
-  return { item, title, speed, figure, pill, fill, error };
+  item.append(thumb, title, meta, bar, error);
+  return { item, thumb, title, speed, figure, pill, fill, error };
 }
 
 function updateJobRow(row, job) {
+  const id = videoId(job.url);
+  if (row.thumb.dataset.id !== id) {
+    row.thumb.dataset.id = id;
+    if (id) row.thumb.src = `https://i.ytimg.com/vi/${id}/mqdefault.jpg`;
+    else row.thumb.removeAttribute("src");
+  }
   const percent = Math.max(0, Math.min(100, Number(job.percent) || 0));
   const active = ["starting", "downloading", "merging"].includes(job.status);
   const className = `job ${job.status || "waiting"}`;
@@ -402,10 +436,73 @@ function renderAddButton() {
   }
 }
 
+/* Preview: a result's thumbnail plays that video through a hidden YouTube player, so a
+   song can be heard before it is added. One preview at a time; the background music waits. */
+const PLAY_ICONS = '<svg class="icon-play" viewBox="0 0 24 24" width="16" height="16"><path d="M7 4v16l13-8z"></path></svg><svg class="icon-pause" viewBox="0 0 24 24" width="16" height="16"><path d="M7 5h4v14H7zM13 5h4v14h-4z"></path></svg>';
+let previewFrame = null;
+let previewUrl = "";
+
+function markPreview() {
+  document.querySelectorAll(".result-play").forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.url === previewUrl));
+  });
+}
+
+function stopPreview() {
+  if (!previewFrame) return;
+  previewFrame.remove();
+  previewFrame = null;
+  previewUrl = "";
+  markPreview();
+  document.dispatchEvent(new CustomEvent("preview", { detail: false }));
+}
+
+function startPreview(video) {
+  const id = videoId(video.url);
+  if (!id) {
+    setStatus("Không nghe thử được bài này.", "error");
+    return;
+  }
+  if (previewFrame) previewFrame.remove();
+  else document.dispatchEvent(new CustomEvent("preview", { detail: true }));
+  const frame = document.createElement("iframe");
+  frame.className = "music-frame";
+  frame.title = "Nghe thử YouTube";
+  frame.allow = "autoplay; encrypted-media";
+  frame.tabIndex = -1;
+  frame.setAttribute("aria-hidden", "true");
+  // The player only reports errors and the end of the song to a page that asks for them.
+  frame.addEventListener("load", () => {
+    const tell = (message) => frame.contentWindow?.postMessage(JSON.stringify(message), "https://www.youtube.com");
+    tell({ event: "listening", id: "preview", channel: "widget" });
+    for (const name of ["onStateChange", "onError"]) {
+      tell({ event: "command", func: "addEventListener", args: [name], id: "preview", channel: "widget" });
+    }
+  });
+  frame.src = `https://www.youtube.com/embed/${id}?autoplay=1&enablejsapi=1&controls=0&playsinline=1`;
+  document.body.append(frame);
+  previewFrame = frame;
+  previewUrl = video.url;
+  markPreview();
+}
+
+window.addEventListener("message", (event) => {
+  if (!previewFrame || event.source !== previewFrame.contentWindow) return;
+  let data;
+  try { data = JSON.parse(event.data); } catch { return; }
+  if (data.event === "onError") {
+    stopPreview();
+    setStatus("Bài này không cho nghe thử trong ứng dụng, nhưng vẫn tải về được.", "subdued");
+  } else if (data.event === "onStateChange" && data.info === 0) {
+    stopPreview(); // the song played to its end
+  }
+});
+
 function renderSearchResults() {
   const panel = $("search-panel");
   const container = $("search-results");
   if (!panel || !container) return;
+  stopPreview();
   const open = searchResults.length > 0 || Boolean(lastQuery);
   panel.hidden = !open;
   if ($("links-panel")) $("links-panel").hidden = open;
@@ -422,11 +519,25 @@ function renderSearchResults() {
     check.dataset.index = String(index);
     check.setAttribute("aria-label", video.title);
 
-    const thumb = document.createElement("img");
-    thumb.className = "result-thumb";
-    thumb.alt = "";
-    thumb.loading = "lazy";
-    if (video.thumbnail) thumb.src = video.thumbnail;
+    const image = document.createElement("img");
+    image.className = "result-thumb";
+    image.alt = "";
+    image.loading = "lazy";
+    if (video.thumbnail) image.src = video.thumbnail;
+    // A button inside the row's label: clicking it previews without ticking the box.
+    const thumb = document.createElement("button");
+    thumb.type = "button";
+    thumb.className = "result-play";
+    thumb.dataset.url = video.url;
+    thumb.title = "Nghe thử";
+    thumb.setAttribute("aria-label", `Nghe thử: ${video.title}`);
+    thumb.setAttribute("aria-pressed", "false");
+    const playIcon = document.createElement("span");
+    playIcon.className = "result-play-icon";
+    playIcon.setAttribute("aria-hidden", "true");
+    playIcon.innerHTML = PLAY_ICONS;
+    thumb.append(image, playIcon);
+    thumb.addEventListener("click", () => (previewUrl === video.url ? stopPreview() : startPreview(video)));
 
     const copy = document.createElement("span");
     copy.className = "result-copy";
@@ -545,16 +656,15 @@ async function initialize() {
 /* --------------------------------------------------------------------------
    Events
    -------------------------------------------------------------------------- */
-window.addEventListener("scroll", () => {
-  $("topbar")?.classList.toggle("scrolled", window.scrollY > 0);
-}, { passive: true });
-
 $("theme-toggle")?.addEventListener("click", () => {
   const current = document.documentElement.getAttribute("data-theme") || "light";
   setTheme(current === "dark" ? "light" : "dark");
 });
 
-$("links")?.addEventListener("input", renderCounts);
+$("links")?.addEventListener("input", () => {
+  clearFinishedRun();
+  renderCounts();
+});
 
 document.querySelectorAll('input[name="video-quality"]').forEach((input) => {
   input.addEventListener("change", () => {
@@ -583,6 +693,7 @@ $("btn-clear-links")?.addEventListener("click", async () => {
   if (!confirm(`Xoá toàn bộ link ${MODE_NAMES[mode]} trong danh sách?`)) return;
   try {
     $("links").value = "";
+    clearFinishedRun();
     renderCounts();
     await saveLinks();
     setStatus(`Đã xoá danh sách link ${MODE_NAMES[mode]}.`, "subdued");
@@ -629,6 +740,7 @@ $("add-search")?.addEventListener("click", async () => {
     const existing = new Set(linkLines(currentText));
     const newUrls = selected.filter((url) => !existing.has(url));
     $("links").value = [currentText.trim(), ...newUrls].filter(Boolean).join("\n");
+    clearFinishedRun();
     renderCounts();
     await saveLinks();
     closeSearch();
